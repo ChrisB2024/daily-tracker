@@ -7,17 +7,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy project files
-COPY pyproject.toml pyproject.toml
+# Copy all files first
+COPY . .
 
 # Install Python dependencies
 RUN pip install --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -e .
-
-# Copy app code
-COPY app/ app/
-COPY alembic/ alembic/
-COPY alembic.ini alembic.ini
 
 # Expose port
 EXPOSE 8080
