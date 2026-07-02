@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getAnalytics } from "../api";
 
 export default function Analytics() {
   const [analytics, setAnalytics] = useState([]);
@@ -12,9 +13,7 @@ export default function Analytics() {
   async function fetchAnalytics() {
     try {
       setLoading(true);
-      const response = await fetch("/summary/analytics");
-      if (!response.ok) throw new Error("Failed to fetch analytics");
-      const data = await response.json();
+      const data = await getAnalytics();
       setAnalytics(data);
       setError(null);
     } catch (err) {

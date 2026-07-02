@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getHistory } from "../api";
 
 export default function History() {
   const [goals, setGoals] = useState([]);
@@ -12,9 +13,7 @@ export default function History() {
   async function fetchHistory() {
     try {
       setLoading(true);
-      const response = await fetch("/history");
-      if (!response.ok) throw new Error("Failed to fetch history");
-      const data = await response.json();
+      const data = await getHistory();
       setGoals(data);
       setError(null);
     } catch (err) {

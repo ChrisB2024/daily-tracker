@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getDebrief } from "../api";
 
 function parseISODate(dateString) {
   const [year, month, day] = dateString.split("-").map(Number);
@@ -19,9 +20,7 @@ export default function Debrief() {
   async function fetchDebrief() {
     try {
       setLoading(true);
-      const response = await fetch("/debrief");
-      if (!response.ok) throw new Error("Failed to fetch debrief");
-      const data = await response.json();
+      const data = await getDebrief();
       setDebrief(data);
       setError(null);
     } catch (err) {

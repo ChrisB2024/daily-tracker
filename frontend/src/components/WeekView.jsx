@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { completeRep, deleteRep } from "../api";
+import { completeRep, deleteRep, getWeek } from "../api";
 
 function parseISODate(dateString) {
   const [year, month, day] = dateString.split("-").map(Number);
@@ -18,9 +18,7 @@ export default function WeekView() {
   async function fetchWeek() {
     try {
       setLoading(true);
-      const response = await fetch("/summary/week");
-      if (!response.ok) throw new Error("Failed to fetch week");
-      const data = await response.json();
+      const data = await getWeek();
       setWeek(data);
       setError(null);
     } catch (err) {
