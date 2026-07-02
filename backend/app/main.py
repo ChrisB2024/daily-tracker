@@ -1,10 +1,19 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.cors import CORSMiddleware
 
 from app.routers import goals, rep_types, reps, summary, debrief, history
 from app.scheduler import init_scheduler, scheduler
 
 app = FastAPI(title="Daily Tracker", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
