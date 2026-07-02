@@ -17,8 +17,5 @@ RUN pip install --upgrade pip setuptools wheel && \
 # Expose port
 EXPOSE 8080
 
-# Run migrations before starting the app
-RUN alembic upgrade head
-
 # Run the app
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
