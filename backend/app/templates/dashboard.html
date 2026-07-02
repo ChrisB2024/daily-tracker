@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Daily Tracker — {{ today }}</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Daily Tracker</h1>
+      <p class="today">{{ today.strftime("%A, %B %d") }}</p>
+    </header>
+
+    <!-- Header stats: daily score, week total, PR -->
+    <section class="stats">
+      <div class="stat">
+        <div class="stat-label">Today</div>
+        <div class="stat-value">{{ daily_score }}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">This Week</div>
+        <div class="stat-value">{{ week_total }}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">PR</div>
+        <div class="stat-value">{{ weekly_pr }}</div>
+      </div>
+    </section>
+
+    <!-- First-rep before noon rate -->
+    <section class="first-rep-strip">
+      <div class="first-rep-label">First rep before noon this week</div>
+      <div class="first-rep-bar">
+        <div class="first-rep-fill" style="width: {{ (first_rep_rate * 100) | int }}%"></div>
+      </div>
+      <div class="first-rep-pct">{{ (first_rep_rate * 100) | int }}%</div>
+    </section>
+
+    <!-- Chains per rep type -->
+    {% if chains %}
+    <section>
+      <h2>Chains</h2>
+      <ul class="chains">
+        {% for chain in chains %}
+          <li class="chain">
+            <div class="chain-header">
+              <strong>{{ chain.rep_type_name }}</strong>
+              <span class="chain-goal">{{ chain.goal_title }}</span>
+            </div>
+            <div class="chain-value">{{ chain.current_chain }} days</div>
+            {% if chain.last_completed_date %}
+              <div class="chain-last">Last: {{ chain.last_completed_date.strftime("%b %d") }}</div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    <!-- Today's reps grouped by goal -->
+    {% if goals_with_reps %}
+    <section>
+      <h2>Today's Reps</h2>
+      {% for goal in goals_with_reps %}
+        <div class="goal-group">
+          <h3>{{ goal.goal_title }}</h3>
+          {% if goal.reps %}
+            <ul class="reps">
+              {% for rep in goal.reps %}
+                <li class="rep status-{{ rep.status }}">
+                  <form method="post" action="/reps/{{ rep.rep_id }}/complete" class="inline">
+                    <button type="submit"
+                            {% if rep.status != "pending" %}disabled{% endif %}>
+                      {% if rep.status == "completed" %}✓
+                      {% elif rep.status == "missed" %}✗
+                      {% else %}○
+                      {% endif %}
+                    </button>
+                  </form>
+                  <span class="title">
+                    [{{ rep.rep_type_name }}]
+                  </span>
+                  <span class="time">{{ rep.scheduled_time }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </section>
+    {% else %}
+      <section>
+        <h2>Today's Reps</h2>
+        <p class="empty">No reps scheduled for today.</p>
+      </section>
+    {% endif %}
+
+    <footer>
+      <form method="post" action="/reps/mark-missed">
+        <button type="submit">Run end-of-day sweep</button>
+      </form>
+    </footer>
+  </body>
+</html>

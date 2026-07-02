@@ -1,0 +1,123 @@
+/* Slice 1 minimal styling — real design lands in Slice 3. */
+:root {
+  --bg: #0f1115;
+  --fg: #e6e6e6;
+  --muted: #888;
+  --pending: #555;
+  --completed: #4ade80;
+  --missed: #ef4444;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  line-height: 1.5;
+}
+
+header h1 { margin: 0; }
+.today { color: var(--muted); margin: 0 0 2rem; }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #1a1e26;
+  border-radius: 8px;
+}
+.stat {
+  text-align: center;
+}
+.stat-label { color: var(--muted); font-size: 0.9rem; }
+.stat-value { font-size: 2.5rem; font-weight: bold; color: var(--completed); margin-top: 0.5rem; }
+
+.first-rep-strip {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #1a1e26;
+  border-radius: 8px;
+}
+.first-rep-label { color: var(--muted); font-size: 0.9rem; margin-bottom: 0.5rem; }
+.first-rep-bar {
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+.first-rep-fill { height: 100%; background: var(--completed); transition: width 0.3s; }
+.first-rep-pct { color: var(--completed); font-weight: bold; }
+
+.chains {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+.chain {
+  padding: 1rem;
+  background: #1a1e26;
+  border-radius: 8px;
+  border-left: 3px solid var(--pending);
+}
+.chain-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+.chain-goal { color: var(--muted); font-size: 0.85rem; }
+.chain-value { font-size: 1.5rem; font-weight: bold; color: var(--completed); }
+.chain-last { color: var(--muted); font-size: 0.85rem; margin-top: 0.25rem; }
+
+.goal-group { margin-bottom: 2rem; }
+.goal-group h3 { margin: 0 0 1rem; color: var(--fg); }
+
+h2 { font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+
+ul { list-style: none; padding: 0; }
+
+.rep {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #222;
+}
+.rep .title { flex: 1; }
+.rep .time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.rep.status-completed .title { text-decoration: line-through; color: var(--completed); }
+.rep.status-missed .title { color: var(--missed); }
+
+.rep button {
+  border-color: var(--pending);
+}
+.rep.status-completed button {
+  border-color: var(--completed);
+  color: var(--completed);
+}
+.rep.status-missed button {
+  border-color: var(--missed);
+  color: var(--missed);
+}
+
+button {
+  background: transparent;
+  border: 1px solid #333;
+  color: var(--fg);
+  width: 2rem; height: 2rem;
+  border-radius: 50%;
+  cursor: pointer;
+}
+button:disabled { cursor: default; opacity: 0.6; }
+
+.empty { color: var(--muted); font-style: italic; }
+footer { margin-top: 3rem; }
+footer button { width: auto; border-radius: 4px; padding: 0.5rem 1rem; }
