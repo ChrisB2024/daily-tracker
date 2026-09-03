@@ -4,7 +4,7 @@ One-time OAuth flow to get Google Calendar refresh token.
 
 Usage:
     python scripts/google_oauth.py
-    → Opens browser for authorization
+    → Prints an authorization URL to open in your browser
     → Prints GOOGLE_REFRESH_TOKEN to stdout
     → Copy it into .env
 
@@ -36,14 +36,27 @@ def main():
                 "client_secret": settings.google_client_secret,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": ["http://localhost:8080/"],
+                "redirect_uris": ["http://127.0.0.1:8080/"],
             }
         },
         scopes=["https://www.googleapis.com/auth/calendar.events"],
     )
 
-    # Run the local server (opens browser)
-    creds = flow.run_local_server(port=8080)
+    # Print the authorization URL and wait for the IPv4 loopback callback.
+    creds = flow.run_local_server(
+        host="127.0.0.1",
+        port=8080,
+        open_browser=False,
+        prompt="consent",
+    )
+
+    if not creds.refresh_token:
+        print(
+            "ERROR: Google did not issue a refresh token. Revoke the app's existing "
+            "Google Account access and try again.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     print(f"\nGOOGLE_REFRESH_TOKEN={creds.refresh_token}")
     print("\nCopy the above line and add it to your .env file, then restart uvicorn.")
