@@ -107,6 +107,28 @@ The agent must not answer these on its own.
   flagged `is_first_rep` was completed before noon". Across *all* goals at once,
   or per goal? With three active goals each having a first rep, the current
   all-or-nothing reading makes the metric almost always zero.
+- **Does a day with nothing scheduled break a chain?** `readme.md`'s literal
+  rule is "a chain breaks when a day passes with zero completions". Taken
+  literally, a rep type scheduled Mon–Fri breaks every Saturday and can never
+  exceed 5. That may be intended, or it may produce exactly the "chains feel
+  unfair, the dashboard feels red" V1-failure condition. **Blocks Unit 02**, and
+  the same question governs whether an unscheduled day counts against the
+  first-rep rate in Unit 06.
+- **Should a failed migration keep booting the app?** `alembic upgrade head ||
+  true` in the Dockerfile means a broken migration boots a running app against
+  the old schema with a green deploy. **Blocks Unit 11**, which is the first new
+  migration since that was added.
+- **Does storing debrief prose violate Security invariant S2?** S2 permits an
+  unauthenticated API precisely because the database holds only rep metadata.
+  Unit 11 would store a week-by-week narrative of what Chris works on and
+  avoids, which is arguably past that line. Either S2 is amended or only the
+  structured stats are stored. **Blocks Unit 11**, and Unit 12 makes it
+  browsable.
+- **Should the debrief MP3 be persisted at all?** `readme.md`'s model has an
+  `audio_url`, implying object storage that does not exist, and
+  `architecture.md` forbids blobs in Postgres. Unit 11's spec defaults to
+  storing text and stats only and regenerating audio on demand — confirm or
+  overrule.
 - **Should paused goals appear in the debrief?** `readme.md` leans toward
   hiding them and never resolved it. Nothing filters on goal status today.
 - **Is `?hard=true` on a goal still wanted?** It is the only path that destroys
@@ -208,9 +230,15 @@ Violations** table: that table is the real backlog, and the Next list above is
 it in priority order.
 
 The system is deployed and in daily use, and the working tree is clean —
-the OAuth script fix shipped in `9946db6`. The build plan exists at
-`context/specs/00-build-plan.md`; the next action is a spec for Unit 01
-(`/six-file-context spec 01`), not code.
+the OAuth script fix shipped in `9946db6`. The build plan is at `context/specs/00-build-plan.md`
+and all 13 unit specs are written (`01-…` through `13-…`). The next action is
+implementing Unit 01 — but four blocking questions above must be answered first:
+two before Unit 02 and Unit 06 can be written correctly, two before Unit 11
+ships. Unit 01 is unblocked and can start immediately.
+
+Specs 07, 08, 09, 12 and 13 were written in a batch ahead of the units they
+depend on, and each opens with a **Reconcile before implementing** section.
+Read it — do not implement those from the spec alone.
 
 The single most valuable change is the smallest: chains are already computed,
 already sent to the browser, and already have two components written to render
