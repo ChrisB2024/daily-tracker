@@ -65,36 +65,29 @@ Nothing.
 
 ## Next
 
-No build plan exists yet — run `/six-file-context plan` to produce
-`context/specs/00-build-plan.md`. Based on the reconciliation in
-`architecture.md`, the ordering that follows is:
+The build plan is `context/specs/00-build-plan.md` — 13 units, approved
+2026-09-03. Start with **Unit 01**. In short:
 
-1. **Render chains on the Today view.** Wire the already-written `ChainsList` /
-   `ChainsVisualization` into `Dashboard.jsx`. Highest value per line changed —
-   the data is already computed and serialized.
-2. **Fix chain computation.** Start the walk from yesterday when today has no
-   completion yet; honour `daily_floor` and `weekly_target`; filter archived rep
-   types; include rep types with zero completions at chain 0. Do this with (1)
-   or immediately after — rendering a wrong chain is worse than rendering none.
-3. **One week definition.** Make `debrief.py` use Monday-start like
-   `summary.py`, and give the scheduler `settings.tz` so the Sunday job fires at
-   21:00 America/New_York instead of 21:00 UTC.
-4. **Automatic end-of-day sweep** at 23:59 in `settings.tz`, and fix the manual
-   sweep's `scheduled_date <= today` window so pressing it at 09:00 stops
-   killing today's pending reps.
-5. **Rewrite the debrief prompt and its inputs** — findings not encouragement,
-   and feed it chains, PR comparison, first-rep rate, and most-avoided rep type,
-   per `readme.md`'s pipeline steps 2–4.
-6. **Stop hard-deleting reps.** Guard `DELETE /reps/{id}` to `pending` only, and
-   remove the ✕ from completed and missed rows.
-7. **Fix `first_rep_rate`** to measure `completed_at < noon`, divide by elapsed
-   days, and ignore archived and paused goals.
-8. **Kill the N+1s** — `selectinload` instead of `refresh`-in-a-loop,
-   `select(func.count())` instead of `len(...all())`, one `GoogleCalendarClient`
-   per bulk request instead of one per rep.
-9. **Persist `WeeklySummary`** so History can show past debriefs.
-10. **Delete the dead server-rendered dashboard** and rewrite
-    `backend/README.md`, which is a completed Slice-1 TODO list.
+1. **Guard rep deletion** — trust infrastructure, and one click currently
+   destroys the evidence trail. Moved to the front from #6 in the earlier
+   sketch: the rep history *is* this system's integrity claim.
+2. **Fix chain computation** — before rendering, so a live chain never
+   displays as broken.
+3. **Render chains on Today** — the components are already written and the data
+   is already on the wire.
+4. **One week, one timezone** — cannot be verified on the laptop; the bug only
+   appears in the container.
+5. **End-of-day sweep** — automatic 23:59, plus the manual sweep's window fix.
+6. **Fix `first_rep_rate`** — blocked in part on an open question below.
+7. **Debrief inputs** — needs 2, 4 and 6 to be correct first.
+8. **Debrief prompt and tone** — findings, not encouragement.
+9. **Kill the N+1s** — deliberately after the units that rewrite those queries.
+10. **Calendar sync integrity** · 11. **Persist `WeeklySummary`** ·
+    12. **Past debriefs in History** · 13. **Delete dead code.**
+
+Deferred for lack of a decision, not for lack of value: push notification,
+weekly-target chain rules, weekly PR scope, paused goals in the debrief,
+`?hard=true`, and whether to add tests. See the plan's **Not units yet**.
 
 ## Open Questions
 
@@ -214,9 +207,10 @@ product behavior.** Then `architecture.md`, and specifically its **Known
 Violations** table: that table is the real backlog, and the Next list above is
 it in priority order.
 
-The system is deployed and in daily use. The one uncommitted change is
-`backend/scripts/google_oauth.py`; decide whether to commit it before starting.
-There is no build plan yet — run `/six-file-context plan` to create one.
+The system is deployed and in daily use, and the working tree is clean —
+the OAuth script fix shipped in `9946db6`. The build plan exists at
+`context/specs/00-build-plan.md`; the next action is a spec for Unit 01
+(`/six-file-context spec 01`), not code.
 
 The single most valuable change is the smallest: chains are already computed,
 already sent to the browser, and already have two components written to render
