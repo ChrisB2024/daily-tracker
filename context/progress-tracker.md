@@ -58,6 +58,10 @@ it before starting anything else.**
 - **Unit 01 — Guard rep deletion** (2026-09-07). `DELETE /reps/{id}` returns 409
   for completed and missed reps; the ✕ renders only on pending rows. Product
   invariant 3 now holds for every path reachable from the UI.
+- **Unit 02 — Fix chain computation** (2026-09-07). One forgiven empty day per
+  chain, length as calendar span, today never judged. Archived rep types
+  excluded; rep types with no completions emitted at 0 instead of vanishing.
+  Weekly-only chaining still carved out — no live case.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -72,8 +76,7 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 2026-09-07. Start with **Unit 01**. In short:
 
 1. ~~**Guard rep deletion**~~ — shipped 2026-09-07.
-2. **Fix chain computation** — before rendering, so a live chain never
-   displays as broken.
+2. ~~**Fix chain computation**~~ — shipped 2026-09-07.
 3. **Render chains on Today** — the components are already written and the data
    is already on the wire.
 4. **One week, one timezone** — cannot be verified on the laptop; the bug only
@@ -108,13 +111,6 @@ The agent must not answer these on its own.
   flagged `is_first_rep` was completed before noon". Across *all* goals at once,
   or per goal? With three active goals each having a first rep, the current
   all-or-nothing reading makes the metric almost always zero.
-- **Does a day with nothing scheduled break a chain?** `readme.md`'s literal
-  rule is "a chain breaks when a day passes with zero completions". Taken
-  literally, a rep type scheduled Mon–Fri breaks every Saturday and can never
-  exceed 5. That may be intended, or it may produce exactly the "chains feel
-  unfair, the dashboard feels red" V1-failure condition. **Blocks Unit 02**, and
-  the same question governs whether an unscheduled day counts against the
-  first-rep rate in Unit 06.
 - **Should a failed migration keep booting the app?** `alembic upgrade head ||
   true` in the Dockerfile means a broken migration boots a running app against
   the old schema with a green deploy. **Blocks Unit 11**, which is the first new
@@ -137,6 +133,16 @@ The agent must not answer these on its own.
   real use?
 
 ## Decisions
+
+- **A chain survives one empty day, once, and its length is the calendar span**
+  (2026-09-07) — a rep type scheduled Mon-Fri would otherwise break every
+  weekend and never exceed 5, which is the "chains feel unfair, the dashboard
+  feels red" V1-failure condition. One forgiven day per chain keeps a rest day
+  from erasing a month of work. · Traded away: a chain reading 6 may represent
+  5 completed reps, so chain length is no longer the same as reps done — the
+  daily score and week total remain the honest volume measures. A second gap
+  ends the run, so a daily-floor rep type cannot be held indefinitely at
+  every-other-day adherence.
 
 - **The API has no authentication, deliberately.** — Single user, single
   machine, obscure URL. · Traded away: anyone with the URL can read and write
@@ -170,6 +176,15 @@ The agent must not answer these on its own.
   async clients. · Traded away: a thread per external call.
 
 ## Model Corrections
+
+- Expected the weekly-target carve-out in Unit 02 to need careful handling →
+  every rep type in the database has `daily_floor = 1`, so the weekly-only
+  branch is dead code with no behavior to preserve → now assume a carve-out
+  may be hypothetical; check the data before designing around it.
+- Expected the morning-zero bug to be a theoretical edge case → replaying real
+  history, the old walk reported 0 for "1h Learning" and "Build Project" on
+  2026-06-30 when their chains were genuinely 2 and 3 days alive → now assume
+  the dashboard has been under-reporting chains on most mornings since launch.
 
 - Expected the local Postgres to be the live data → its reps stop at 2026-07-01
   while today is 2026-09-07, so the local database is a ~2-month-old snapshot

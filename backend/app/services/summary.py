@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Rep, RepStatus, RepType, Goal
+from app.models import Rep, RepStatus, RepType, RepTypeStatus, Goal
 
 
 async def get_daily_score(session: AsyncSession, target_date: date, tz: ZoneInfo) -> int:
@@ -87,6 +87,53 @@ async def get_first_rep_rate(session: AsyncSession, target_date: date, tz: ZoneI
     return days_with_all_first_reps / 7
 
 
+def _walk_chain(dates_completed: set[date], today: date) -> int:
+    """
+    Chain length in calendar days.
+
+    Rule decided 2026-09-07 (see context/specs/02-fix-chain-computation.md):
+    one empty day is forgiven once per chain; a second gap, or any gap of two or
+    more days, breaks it. Length is the span from the first to the last completed
+    day of the run, inclusive — so the forgiven rest day counts toward the number.
+
+    Today is never judged. It has not finished yet, so a missing completion today
+    neither breaks the chain nor spends the grace. That is what stops a live chain
+    reading 0 every morning, and it is deliberately separate from the grace rule:
+    an unfinished today is not a gap, an empty yesterday is.
+    """
+    # A rep scheduled in the future can be completed early; it must not inflate
+    # a chain measured through today.
+    dates_completed = {d for d in dates_completed if d <= today}
+    if not dates_completed:
+        return 0
+
+    last = max(dates_completed)
+
+    # days_since == 2 means only yesterday has fully elapsed empty, so the grace
+    # covers it and the run survives. Beyond that, two empty days have elapsed.
+    days_since = (today - last).days
+    if days_since > 2:
+        return 0
+    grace_used = days_since == 2
+
+    start = last
+    cur = last - timedelta(days=1)
+    while True:
+        if cur in dates_completed:
+            start = cur
+            cur -= timedelta(days=1)
+        elif not grace_used and (cur - timedelta(days=1)) in dates_completed:
+            # Single empty day with a completion either side — forgive it once
+            # and step over it.
+            grace_used = True
+            start = cur - timedelta(days=1)
+            cur -= timedelta(days=2)
+        else:
+            break
+
+    return (last - start).days + 1
+
+
 class ChainInfo:
     """Per-rep-type chain metadata."""
 
@@ -108,7 +155,9 @@ class ChainInfo:
 
 
 async def get_chains(session: AsyncSession, tz: ZoneInfo) -> list[ChainInfo]:
-    stmt = select(RepType)
+    # Archived rep types are excluded: a domain that was deliberately paused
+    # should not keep occupying the dashboard.
+    stmt = select(RepType).where(RepType.status == RepTypeStatus.active)
     result = await session.execute(stmt)
     rep_types = result.scalars().all()
 
@@ -124,20 +173,18 @@ async def get_chains(session: AsyncSession, tz: ZoneInfo) -> list[ChainInfo]:
         result = await session.execute(stmt)
         completed_reps = result.scalars().all()
 
-        if not completed_reps:
-            continue
-
-        # Create set of dates with at least one completion
+        # Dates with at least one completion. A rep type with none is still
+        # emitted, at chain 0 — a chain at zero is information, an absent row
+        # is not.
         dates_completed = {rep.scheduled_date for rep in completed_reps}
 
-        # Walk backwards from today, counting consecutive days with completions
-        chain_length = 0
-        current_day = today
-        while current_day in dates_completed:
-            chain_length += 1
-            current_day -= timedelta(days=1)
+        # TODO: rep types with no daily_floor (weekly_target only) should chain
+        # per week rather than per day, per readme.md, whose edge cases are
+        # explicitly TBD and still an open question. No such rep type exists
+        # today — every one has daily_floor = 1 — so they fall through to the
+        # daily walk. Decide the weekly rule before creating one.
+        chain_length = _walk_chain(dates_completed, today)
 
-        # Get last completed date
         last_completed_date = max(dates_completed) if dates_completed else None
 
         # Eagerly load goal

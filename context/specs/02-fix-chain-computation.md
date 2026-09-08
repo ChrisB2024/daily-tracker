@@ -64,26 +64,49 @@ unresolved open question. **Leave their current behavior unchanged and do not
 guess a weekly rule.** Emit them as they are computed today, and note in the
 code which branch is awaiting a decision.
 
-## Open Question — resolve before implementing
+## The chain rule — decided 2026-09-07
 
-**Does an unscheduled day break a chain?** `readme.md`'s literal rule is "a
-chain breaks when a day passes with zero completions of that rep type". Taken
-literally, a rep type scheduled Monday to Friday breaks its chain every Saturday
-and can never exceed 5. That may be the intent — or it may produce exactly the
-"chains feel unfair, the dashboard feels red" outcome listed as a V1-failure
-condition.
+A single empty day is forgiven **once per chain**. A second gap, or any gap of
+two or more days, breaks it. Chain length is the **calendar span** from the
+first to the last completed day of the run, inclusive — so the forgiven rest day
+counts toward the number.
 
-Three readings, none of which should be chosen by the agent:
+Today is never judged: it has not finished yet, so a missing completion today
+neither breaks a chain nor spends the grace.
 
-1. **Literal** — any day with zero completions breaks it. Weekends break
-   weekday-only rep types.
-2. **Scheduled days only** — a day with no rep of that type scheduled is
-   skipped rather than breaking the chain.
-3. **Floor-aware** — only days on or after the rep type's creation, and only
-   days its cadence actually calls for, count.
+### Worked examples
 
-This changes the number on the dashboard, so it needs an answer before the walk
-is written.
+```
+Mon ✓  Tue ✓  Wed ✓   (today Wed)          -> 3
+Mon ✓  Tue —  Wed ✓   (today Wed)          -> 3   gap forgiven, span Mon..Wed
+Mon ✓  Tue ✓  Wed ·   (today Wed, not done)-> 2   today not judged, no reset
+Mon ✓  Tue —  Wed ·   (today Wed, not done)-> 1   grace covers Tue
+Mon ✓  Tue —  Wed —  Thu ·                 -> 0   two elapsed empty days
+Mon ✓  Tue —  Wed ✓  Thu —  Fri ✓ (today)  -> 3   second gap ends it at Wed
+```
+
+### Algorithm
+
+```
+last = max(dates_completed)                  # 0 if the set is empty
+days_since = (today - last).days
+if days_since > 2: chain = 0                 # two or more elapsed empty days
+grace_used = (days_since == 2)               # yesterday was the forgiven day
+
+start = last
+cur   = last - 1 day
+loop:
+    if cur completed:                start = cur;      cur -= 1 day
+    elif not grace_used and (cur - 1 day) completed:
+                       grace_used = True;  start = cur - 1 day;  cur -= 2 days
+    else: break
+
+chain = (last - start).days + 1
+```
+
+`days_since <= 2` is what keeps a live chain from reading 0 in the morning, and
+it is deliberately separate from the grace rule: an unfinished today is not a
+gap, whereas an empty yesterday is.
 
 ## Failure Modes
 
