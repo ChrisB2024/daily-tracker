@@ -9,8 +9,9 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.models import Rep, RepStatus, RepType, RepTypeStatus, Goal
+from app.models import Rep, RepStatus, RepType, RepTypeStatus, Goal, GoalStatus
 
 
 def week_start_for(target_date: date) -> date:
@@ -64,41 +65,6 @@ async def get_weekly_pr(session: AsyncSession, tz: ZoneInfo) -> int:
     return max(week_totals.values()) if week_totals else 0
 
 
-async def get_first_rep_rate(session: AsyncSession, target_date: date, tz: ZoneInfo) -> float:
-    week_start = week_start_for(target_date)
-
-    # Get all rep types marked as first-rep
-    stmt = select(RepType).where(RepType.is_first_rep == True)
-    result = await session.execute(stmt)
-    first_rep_types = result.scalars().all()
-
-    if not first_rep_types:
-        return 0.0
-
-    # For each day in the week, check if all first-reps were completed before noon
-    days_with_all_first_reps = 0
-    for day_offset in range(7):
-        current_day = week_start + timedelta(days=day_offset)
-        all_completed_before_noon = True
-
-        for rep_type in first_rep_types:
-            stmt = select(Rep).where(
-                Rep.rep_type_id == rep_type.id,
-                Rep.scheduled_date == current_day,
-                Rep.status == RepStatus.completed,
-                Rep.scheduled_time < time(12, 0),
-            )
-            result = await session.execute(stmt)
-            if not result.scalars().first():
-                all_completed_before_noon = False
-                break
-
-        if all_completed_before_noon:
-            days_with_all_first_reps += 1
-
-    return days_with_all_first_reps / 7
-
-
 def _walk_chain(dates_completed: set[date], today: date) -> int:
     """
     Chain length in calendar days.
@@ -144,6 +110,104 @@ def _walk_chain(dates_completed: set[date], today: date) -> int:
             break
 
     return (last - start).days + 1
+
+
+class GoalFirstRepRate:
+    """Per-goal first-rep-before-noon rate for one week."""
+
+    def __init__(self, goal_id, goal_title, rate, days_hit, days_scheduled):
+        self.goal_id = goal_id
+        self.goal_title = goal_title
+        self.rate = rate  # None when nothing was scheduled — not the same as 0.0
+        self.days_hit = days_hit
+        self.days_scheduled = days_scheduled
+
+
+async def get_first_rep_rate(
+    session: AsyncSession, target_date: date, tz: ZoneInfo
+) -> list[GoalFirstRepRate]:
+    """
+    Per goal: of the days this week that a first rep was **scheduled**, on how
+    many was every scheduled first rep completed before noon local time?
+
+    Decided 2026-09-07. Asked across all goals at once the metric is almost
+    always zero; counting every elapsed day treats "I did not plan to start early
+    today" as a failure to start early, which punishes a deliberate rest day.
+
+    A goal with first-rep types but nothing scheduled this week is returned with
+    `rate=None` — "none planned" is information, and it is not 0%.
+    """
+    week_start = week_start_for(target_date)
+    last_day = min(target_date, week_start + timedelta(days=6))
+
+    # Active first-rep types on active goals only. An archived rep type or a
+    # paused goal must not drag the metric down.
+    stmt = (
+        select(RepType)
+        .join(Goal, Goal.id == RepType.goal_id)
+        .options(selectinload(RepType.goal))
+        .where(
+            RepType.is_first_rep.is_(True),
+            RepType.status == RepTypeStatus.active,
+            Goal.status == GoalStatus.active,
+        )
+    )
+    first_rep_types = (await session.execute(stmt)).scalars().all()
+    if not first_rep_types:
+        return []
+
+    by_goal: dict = {}
+    for rt in first_rep_types:
+        by_goal.setdefault(rt.goal_id, []).append(rt)
+
+    results = []
+    for goal_id, types in by_goal.items():
+        type_ids = [rt.id for rt in types]
+        stmt = select(Rep).where(
+            Rep.rep_type_id.in_(type_ids),
+            Rep.scheduled_date >= week_start,
+            Rep.scheduled_date <= last_day,
+        )
+        reps = (await session.execute(stmt)).scalars().all()
+
+        by_day: dict = {}
+        for rep in reps:
+            by_day.setdefault(rep.scheduled_date, []).append(rep)
+
+        days_scheduled = len(by_day)
+        days_hit = 0
+        for day_reps in by_day.values():
+            # Every first rep scheduled that day has to be done before noon.
+            # Comparing the local time-of-day of a timestamptz in SQL needs an
+            # explicit AT TIME ZONE conversion that silently shifts the boundary
+            # if it is wrong, so it is done here instead — at one user's volume
+            # the cost is nil. Do not "optimise" this into the query.
+            if all(_completed_before_noon(rep, tz) for rep in day_reps):
+                days_hit += 1
+
+        goal = types[0].goal
+        results.append(
+            GoalFirstRepRate(
+                goal_id=str(goal_id),
+                goal_title=goal.title,
+                rate=(days_hit / days_scheduled) if days_scheduled else None,
+                days_hit=days_hit,
+                days_scheduled=days_scheduled,
+            )
+        )
+
+    results.sort(key=lambda r: r.goal_title)
+    return results
+
+
+def _completed_before_noon(rep, tz: ZoneInfo) -> bool:
+    """A rep counts only if it is completed and stamped before local noon."""
+    if rep.status != RepStatus.completed or rep.completed_at is None:
+        # Legacy rows can be completed with no timestamp; treat as not-before-noon
+        # rather than raising.
+        return False
+    return rep.completed_at.astimezone(tz).time() < time(12, 0)
+
 
 
 class ChainInfo:

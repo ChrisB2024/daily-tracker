@@ -88,7 +88,7 @@ export default function Dashboard() {
                   weeklyPr={data.weekly_pr}
                 />
 
-                <FirstRepStrip rate={data.first_rep_rate} />
+                <FirstRepStrip rates={data.first_rep_rates} />
 
                 <ChainsList chains={data.chains} />
 

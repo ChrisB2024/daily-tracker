@@ -85,6 +85,13 @@ it before starting anything else.**
   only days that have **ended**, so pressing it in the morning no longer marks
   today's pending reps missed. The sweep job registers even when email is not
   configured.
+- **Unit 06 — Fix `first_rep_rate`** (2026-09-07). Per goal, measured on
+  `completed_at` before local noon rather than `scheduled_time`, over days a
+  first rep was actually scheduled. Archived rep types and non-active goals
+  excluded. `first_rep_rate: float` in `/summary` became
+  `first_rep_rates: [{goal_id, goal_title, rate, days_hit, days_scheduled}]`,
+  with `rate: null` for "none scheduled" — which is not 0%. `FirstRepStrip`
+  renders one bar per goal.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -103,7 +110,7 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 3. ~~**Render chains on Today**~~ — shipped 2026-09-07.
 4. ~~**One week, one timezone**~~ — shipped 2026-09-07.
 5. ~~**End-of-day sweep**~~ — shipped 2026-09-07.
-6. **Fix `first_rep_rate`** — blocked in part on an open question below.
+6. ~~**Fix `first_rep_rate`**~~ — shipped 2026-09-07.
 7. **Debrief inputs** — needs 2, 4 and 6 to be correct first.
 8. **Debrief prompt and tone** — findings, not encouragement.
 9. **Kill the N+1s** — deliberately after the units that rewrite those queries.
@@ -145,25 +152,6 @@ The agent must not answer these on its own.
 - **Weekly PR scope.** `get_weekly_pr` counts every completed rep across every
   goal, including archived ones. Should archived goals count toward the all-time
   PR, or does archiving a goal lower the bar?
-- **First-rep semantics.** `readme.md`'s metric is "days where every rep type
-  flagged `is_first_rep` was completed before noon". Across *all* goals at once,
-  or per goal? With three active goals each having a first rep, the current
-  all-or-nothing reading makes the metric almost always zero.
-- **Should a failed migration keep booting the app?** `alembic upgrade head ||
-  true` in the Dockerfile means a broken migration boots a running app against
-  the old schema with a green deploy. **Blocks Unit 11**, which is the first new
-  migration since that was added.
-- **Does storing debrief prose violate Security invariant S2?** S2 permits an
-  unauthenticated API precisely because the database holds only rep metadata.
-  Unit 11 would store a week-by-week narrative of what Chris works on and
-  avoids, which is arguably past that line. Either S2 is amended or only the
-  structured stats are stored. **Blocks Unit 11**, and Unit 12 makes it
-  browsable.
-- **Should the debrief MP3 be persisted at all?** `readme.md`'s model has an
-  `audio_url`, implying object storage that does not exist, and
-  `architecture.md` forbids blobs in Postgres. Unit 11's spec defaults to
-  storing text and stats only and regenerating audio on demand — confirm or
-  overrule.
 - **Should paused goals appear in the debrief?** `readme.md` leans toward
   hiding them and never resolved it. Nothing filters on goal status today.
 - **Is `?hard=true` on a goal still wanted?** It is the only path that destroys
@@ -171,6 +159,15 @@ The agent must not answer these on its own.
   real use?
 
 ## Decisions
+
+- **The first-rep rate is per goal, over days a first rep was scheduled**
+  (2026-09-07) — asked all-goals-at-once it is almost always zero, and counting
+  every elapsed day treats "I did not plan to start early today" as a failure to
+  start early. The question it answers is "of the days I planned to start early
+  on this goal, how often did I?" · Traded away: the rate says nothing about how
+  *often* first reps are planned. On real data last week that is the difference
+  between 1/2 = 50% and 1/7 = 14%; a goal can read 100% off a single scheduled
+  day, so `days_scheduled` must be displayed next to the percentage.
 
 - **A chain survives one empty day, once, and its length is the calendar span**
   (2026-09-07) — a rep type scheduled Mon-Fri would otherwise break every
@@ -214,6 +211,17 @@ The agent must not answer these on its own.
   async clients. · Traded away: a thread per external call.
 
 ## Model Corrections
+
+- Expected `is_first_rep` to be in real use because readme.md calls first-rep
+  -before-noon "the headline behavioral metric" and a non-negotiable → exactly 1
+  of 66 production rep types carries the flag → now assume a documented
+  non-negotiable may be unused in practice; check adoption before sizing work
+  against it.
+- Expected a text-slice edit bounded by a class name to be safe → the slice
+  silently removed `_walk_chain`, added between those two points by Unit 02, and
+  `/summary` 500ed on every request → now assume an edit anchored on line
+  positions must be re-read after applying, and that booting the app is what
+  catches it.
 
 - Expected Unit 03 to be a pure wiring job because two components were already
   written → production has 53 rep types with only 7 alive, so rendering them all
@@ -296,7 +304,13 @@ in `architecture.md`.
 - `Dockerfile` declares `EXPOSE 8080` while the process binds 8000.
 - Vite dev proxy targets `localhost:8001`; `backend/README.md` and the
   Dockerfile both say 8000.
-- No test suite, no typecheck in CI. Ruff is configured and unused.
+- No test suite, no typecheck in CI. Ruff is configured and unused. A deleted
+  function was caught only by manually booting the server during Unit 06; a
+  smoke test hitting every endpoint would have caught it instantly.
+- Only 1 of 66 rep types is flagged `is_first_rep`, so the first-rep metric
+  covers one goal. Flagging more is a product decision for Chris, not code.
+- `routers/dashboard.py` (dead, unregistered) still references the removed
+  `first_rep_rate` float. Unit 13 deletes the file.
 - APScheduler does not backfill a missed fire. The 23:59 sweep is immune —
   it marks everything `scheduled_date <= today`, so a skipped run is repaired by
   the next one. The Sunday debrief is not: a restart spanning 21:00 means no

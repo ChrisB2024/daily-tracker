@@ -1552,3 +1552,18 @@ h3 {
 .chains-zero .chain-value {
   color: var(--muted);
 }
+
+.first-rep-goal {
+  margin-top: 0.85rem;
+}
+
+.first-rep-goal-title {
+  color: var(--fg);
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.first-rep-days {
+  color: var(--muted);
+  font-size: 0.8rem;
+}

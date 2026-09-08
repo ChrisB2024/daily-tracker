@@ -74,12 +74,20 @@ class GoalProgressionInSummary(BaseModel):
     progression: list[ProgressionDataPoint]
 
 
+class GoalFirstRepRateOut(BaseModel):
+    goal_id: UUID
+    goal_title: str
+    rate: float | None  # None = no first rep scheduled this week, which is not 0%
+    days_hit: int
+    days_scheduled: int
+
+
 class DashboardSummary(BaseModel):
     today_date: date
     daily_score: int
     week_total: int
     weekly_pr: int
-    first_rep_rate: float
+    first_rep_rates: list[GoalFirstRepRateOut]
     chains: list[ChainInSummary]
     goals_with_reps: list[GoalRepsInSummary]
     rhythm_30day: dict[str, int]  # date ISO string -> completion count
@@ -110,7 +118,8 @@ async def get_summary(
     - Daily score (completed reps today)
     - Week total (completed reps this week)
     - Weekly PR (all-time best week)
-    - First-rep rate (% of days this week where all first-reps were done before noon)
+    - First-rep rate per goal (of days a first rep was scheduled, how many were
+      completed before noon)
     - Chains per rep type (independent streaks)
     - Today's reps grouped by goal
     """
@@ -121,7 +130,16 @@ async def get_summary(
     daily_score = await get_daily_score(session, target_date, settings.tz)
     week_total = await get_week_total(session, target_date, settings.tz)
     weekly_pr = await get_weekly_pr(session, settings.tz)
-    first_rep_rate = await get_first_rep_rate(session, target_date, settings.tz)
+    first_rep_rates = [
+        GoalFirstRepRateOut(
+            goal_id=r.goal_id,
+            goal_title=r.goal_title,
+            rate=r.rate,
+            days_hit=r.days_hit,
+            days_scheduled=r.days_scheduled,
+        )
+        for r in await get_first_rep_rate(session, target_date, settings.tz)
+    ]
     chains = await get_chains(session, settings.tz)
     goals_with_reps = await get_today_reps(session, target_date)
     rhythm_30day = await get_30day_rhythm(session, settings.tz)
@@ -166,7 +184,7 @@ async def get_summary(
         daily_score=daily_score,
         week_total=week_total,
         weekly_pr=weekly_pr,
-        first_rep_rate=first_rep_rate,
+        first_rep_rates=first_rep_rates,
         chains=chains_summary,
         goals_with_reps=goals_with_reps,
         rhythm_30day=rhythm_30day,
