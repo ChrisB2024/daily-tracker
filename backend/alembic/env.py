@@ -15,9 +15,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.config import settings
 from app.db.base import Base
 
-# Import all models so Base.metadata is populated for autogenerate.
-# TODO (Chris): once you've implemented models/goal.py and models/task.py,
-# this import is what makes Alembic see them.
+# Import all models so Base.metadata is populated for autogenerate. This import
+# is what makes Alembic see goals, rep_types and reps.
 import app.models  # noqa: F401
 
 config = context.config

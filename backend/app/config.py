@@ -47,7 +47,6 @@ class Settings(BaseSettings):
         return bool(self.smtp_user and self.smtp_password)
 
 
-# TODO (Chris): explain to yourself why we cache this as a module-level singleton
-# instead of constructing Settings() inside each function that needs it.
-# Hint: env vars don't change between requests, and validation is non-zero cost.
+# Module-level singleton: env vars do not change between requests, and pydantic
+# validation is not free, so parsing once at import beats parsing per call.
 settings = Settings()

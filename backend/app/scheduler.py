@@ -30,7 +30,7 @@ async def send_weekly_debrief():
     Generate and email the weekly debrief every Sunday at 21:00.
     """
     if not settings.email_enabled:
-        print("Weekly debrief email skipped: email not configured")
+        logger.info("Weekly debrief skipped: email not configured")
         return
 
     try:
@@ -56,8 +56,8 @@ async def send_weekly_debrief():
 
         await engine.dispose()
 
-    except Exception as e:
-        print(f"Failed to send weekly debrief: {e}")
+    except Exception:
+        logger.exception("Failed to send weekly debrief")
 
 
 async def run_end_of_day_sweep():
@@ -110,4 +110,4 @@ def init_scheduler():
         job = scheduler.get_job(job_id)
         if job is not None:
             logger.info("Scheduled %s — next run %s", job_id, job.next_run_time)
-            print(f"✓ Scheduler: {job_id} next runs {job.next_run_time}")
+

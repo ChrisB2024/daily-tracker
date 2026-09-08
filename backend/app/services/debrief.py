@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
+import base64
 import logging
 
 from app.models import Rep, RepStatus, RepType, RepTypeStatus, Goal
@@ -378,43 +379,16 @@ async def generate_debrief_audio_bytes(text: str) -> bytes:
         return b""
 
 
-async def generate_debrief_audio(text: str) -> str:
-    """
-    Convert debrief text to audio using ElevenLabs.
-
-    Returns base64-encoded audio data.
-    """
-    if not settings.elevenlabs_api_key:
-        return ""
-
-    try:
-        from elevenlabs.client import ElevenLabs
-        import base64
-
-        client = ElevenLabs(api_key=settings.elevenlabs_api_key)
-
-        audio_generator = await asyncio.to_thread(
-            lambda: client.text_to_speech.convert(
-                voice_id="21m00Tcm4TlvDq8ikWAM",  # Rachel voice ID
-                text=text,
-                model_id="eleven_turbo_v2_5",
-            )
-        )
-
-        # Collect audio chunks into bytes
-        audio_bytes = b"".join(audio_generator)
-        return base64.b64encode(audio_bytes).decode("utf-8")
-    except Exception:
-        return ""
-
-
 async def get_debrief(session: AsyncSession, target_date: date, tz: ZoneInfo) -> dict:
     """
     Generate complete weekly debrief with text and audio.
     """
     week_data = await get_weekly_summary_data(session, target_date, tz)
     summary_text = await generate_debrief_text(week_data)
-    audio_data = await generate_debrief_audio(summary_text)
+    # One audio function returns bytes; base64 happens at the one call site
+    # that needs it, rather than in a near-duplicate of it.
+    audio_bytes = await generate_debrief_audio_bytes(summary_text)
+    audio_data = base64.b64encode(audio_bytes).decode("utf-8") if audio_bytes else ""
 
     return {
         "week_start": week_data["week_start"],

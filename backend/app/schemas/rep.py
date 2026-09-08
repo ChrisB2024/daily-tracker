@@ -9,9 +9,9 @@ from app.models.rep import RepStatus
 
 
 class RepCreate(BaseModel):
-    # TODO (Chris): decide whether `goal_id` is client-supplied (denormalized as in the readme)
-    # or derived server-side from rep_type. Keeping it explicit + client-supplied is simpler
-    # for now — the create endpoint should also assert rep_type.goal_id == payload.goal_id.
+    # Client-supplied and denormalised, as in readme.md's data model. Both create
+    # endpoints assert rep_type.goal_id == payload.goal_id before inserting, so a
+    # mismatch is a 400 rather than a rep filed under the wrong goal.
     goal_id: UUID
     rep_type_id: UUID
     scheduled_date: date

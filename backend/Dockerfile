@@ -15,7 +15,7 @@ RUN pip install --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -e .
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8000
 
 # Run the app
 CMD sh -c "alembic upgrade head || true; uvicorn app.main:app --host 0.0.0.0 --port 8000"

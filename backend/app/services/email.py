@@ -2,14 +2,17 @@
 Email service for sending debrief summaries with audio attachments.
 """
 
-import smtplib
 import asyncio
+import logging
+import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def send_debrief_email(
@@ -24,7 +27,7 @@ async def send_debrief_email(
     Returns True if successful, False otherwise.
     """
     if not settings.email_enabled:
-        print("Email not configured (missing SMTP credentials)")
+        logger.warning("Email not configured (missing SMTP credentials)")
         return False
 
     try:
@@ -55,9 +58,9 @@ async def send_debrief_email(
                 server.send_message(msg)
 
         await asyncio.to_thread(send_smtp)
-        print(f"✓ Debrief email sent to {recipient}")
+        logger.info("Debrief email sent to %s", recipient)
         return True
 
-    except Exception as e:
-        print(f"Failed to send debrief email: {e}")
+    except Exception:
+        logger.exception("Failed to send debrief email")
         return False
