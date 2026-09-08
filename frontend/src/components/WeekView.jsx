@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { completeRep, deleteRep, getWeek } from "../api";
+import { completeRep, deleteRep, getWeek, getSummary } from "../api";
 
 function parseISODate(dateString) {
   const [year, month, day] = dateString.split("-").map(Number);
@@ -7,6 +7,7 @@ function parseISODate(dateString) {
 }
 
 export default function WeekView() {
+  const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [week, setWeek] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,6 +20,13 @@ export default function WeekView() {
     try {
       setLoading(true);
       const data = await getWeek();
+      // The week payload has no sync flag of its own; /summary carries it.
+      try {
+        const summary = await getSummary();
+        setCalendarEnabled(summary.calendar_enabled);
+      } catch {
+        setCalendarEnabled(false);
+      }
       setWeek(data);
       setError(null);
     } catch (err) {
@@ -88,6 +96,11 @@ export default function WeekView() {
                             </button>
                             <span className="title">[{rep.rep_type_name}]</span>
                             <span className="time">{rep.scheduled_time}</span>
+                            {calendarEnabled && !rep.calendar_event_id && (
+                              <span className="rep-unsynced" title="Not on the calendar — syncing this rep failed">
+                                ⚠
+                              </span>
+                            )}
                             <button
                               className="rep-delete-button"
                               onClick={() => handleDeleteRep(rep.rep_id)}

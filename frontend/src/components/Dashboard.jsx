@@ -94,7 +94,11 @@ export default function Dashboard() {
 
                 <RhythmChart rhythm30day={data.rhythm_30day} />
 
-                <TodayReps goals={data.goals_with_reps} onRepComplete={fetchData} />
+                <TodayReps
+                  goals={data.goals_with_reps}
+                  onRepComplete={fetchData}
+                  calendarEnabled={data.calendar_enabled}
+                />
               </div>
 
               {(data.chains.some((c) => c.current_chain > 0) ||

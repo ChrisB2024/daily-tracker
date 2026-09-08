@@ -11,6 +11,7 @@ Routes:
     POST   /reps/mark-missed   end-of-day sweep (manual trigger for Slice 1)
 """
 
+import logging
 from datetime import date, datetime, timedelta
 from uuid import UUID
 
@@ -24,6 +25,8 @@ from app.models import Rep, RepStatus, RepType
 from app.schemas.rep import RepCreate, RepBulkCreate, RepRead, RepUpdate
 from app.services.google_calendar import GoogleCalendarClient
 from app.services.sweep import sweep_missed
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/reps", tags=["reps"])
 
@@ -64,12 +67,16 @@ async def create_reps_bulk(payload: RepBulkCreate, session: AsyncSession = Depen
     for rep in created:
         await session.refresh(rep, ["rep_type", "goal"])
         if client is not None:
-            rep.calendar_event_id = await client.create_event(
-                rep,
-                rep.rep_type.name,
-                rep.goal.title,
-                settings.tz,
+            event_id = await client.create_event(
+                rep, rep.rep_type.name, rep.goal.title, settings.tz
             )
+            if event_id is None:
+                logger.error(
+                    "Rep %s saved without a calendar event — it will not appear "
+                    "in the calendar and nothing will retry",
+                    rep.id,
+                )
+            rep.calendar_event_id = event_id
 
     await session.commit()
     return created
@@ -105,6 +112,12 @@ async def create_rep(payload: RepCreate, session: AsyncSession = Depends(get_ses
             rep.goal.title,
             settings.tz,
         )
+        if event_id is None:
+            logger.error(
+                "Rep %s saved without a calendar event — it will not appear in "
+                "the calendar and nothing will retry",
+                rep.id,
+            )
         rep.calendar_event_id = event_id
         await session.commit()
 
@@ -143,11 +156,34 @@ async def update_rep(rep_id: UUID, payload: RepUpdate, session: AsyncSession = D
             detail="Rep not found"
         )
     
+    # Capture what the event was built from, to know whether it has to move.
+    before = (rep.scheduled_date, rep.scheduled_time, rep.duration_minutes)
+
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(rep, field, value)
-    
+
     await session.commit()
     await session.refresh(rep)
+
+    after = (rep.scheduled_date, rep.scheduled_time, rep.duration_minutes)
+    # Product invariant 5: the calendar is a mirror. Editing only `notes` must
+    # not call Google; moving the rep must.
+    if after != before and settings.google_calendar_enabled and rep.calendar_event_id:
+        client = GoogleCalendarClient(
+            settings.google_client_id,
+            settings.google_client_secret,
+            settings.google_refresh_token,
+        )
+        start_dt = datetime.combine(rep.scheduled_date, rep.scheduled_time).replace(
+            tzinfo=settings.tz
+        )
+        await client.patch_time(
+            rep.calendar_event_id,
+            start_dt,
+            start_dt + timedelta(minutes=rep.duration_minutes),
+            settings.tz,
+        )
+
     return rep
 
 

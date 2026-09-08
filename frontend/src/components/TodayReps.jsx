@@ -1,7 +1,7 @@
 import { completeRep, deleteRep } from "../api";
 import RepItem from "./RepItem";
 
-export default function TodayReps({ goals, onRepComplete }) {
+export default function TodayReps({ goals, onRepComplete, calendarEnabled }) {
   if (!goals || goals.length === 0) {
     return (
       <section>
@@ -40,6 +40,7 @@ export default function TodayReps({ goals, onRepComplete }) {
             <ul className="reps">
               {goal.reps.map((rep) => (
                 <RepItem
+                  calendarEnabled={calendarEnabled}
                   key={rep.rep_id}
                   rep={rep}
                   onComplete={() => handleCompleteRep(rep.rep_id)}

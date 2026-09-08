@@ -573,6 +573,7 @@ async def get_today_reps(session: AsyncSession, target_date: date) -> list:
                 "status": rep.status.value,
                 "completed_at": rep.completed_at.isoformat() if rep.completed_at else None,
                 "duration_minutes": rep.duration_minutes,
+                    "calendar_event_id": rep.calendar_event_id,
             }
         )
 
@@ -662,6 +663,7 @@ async def get_week_reps(session: AsyncSession, target_date: date, tz: ZoneInfo) 
                     "status": rep.status.value,
                     "completed_at": rep.completed_at.isoformat() if rep.completed_at else None,
                     "duration_minutes": rep.duration_minutes,
+                    "calendar_event_id": rep.calendar_event_id,
                 }
             )
 

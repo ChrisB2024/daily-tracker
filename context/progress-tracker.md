@@ -117,6 +117,12 @@ it before starting anything else.**
   `refresh`-in-a-loop, and the router's per-chain and per-goal fan-outs became
   two batch queries. One `GoogleCalendarClient` per bulk request, with its
   service cached per instance.
+- **Unit 10 — Calendar sync integrity** (2026-09-07). A failed event creation
+  is logged at error naming the rep, and the rep surfaces a muted marker in
+  Today and Week instead of being silently unsynced. Rescheduling a rep now
+  moves its calendar event via a new `patch_time`; editing only `notes` makes no
+  call. `/summary` carries `calendar_enabled` and each rep's
+  `calendar_event_id`, so the UI can tell "sync failed" from "sync is off".
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -139,7 +145,7 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 7. ~~**Debrief inputs**~~ — shipped 2026-09-07.
 8. ~~**Debrief prompt and tone**~~ — shipped 2026-09-07.
 9. ~~**Kill the N+1s**~~ — shipped 2026-09-07.
-10. **Calendar sync integrity** · 11. **Persist `WeeklySummary`** ·
+10. ~~**Calendar sync integrity**~~ — shipped 2026-09-07. · 11. **Persist `WeeklySummary`** ·
     12. **Past debriefs in History** · 13. **Delete dead code.**
 
 Deferred for lack of a decision, not for lack of value: push notification,
@@ -316,6 +322,13 @@ The agent must not answer these on its own.
   now assume repo docs other than `readme.md` and `context/` are stale.
 
 ## Known Debt
+
+- An event deleted by hand in Google Calendar leaves a stale
+  `calendar_event_id`; one-way sync means the tracker cannot know. Reconciliation
+  is a larger feature and is not planned.
+- A reschedule while Google is unreachable moves the rep but not the event, and
+  the marker cannot express it — `calendar_event_id` is still set. Logged at
+  error only.
 
 - `/history` still calls `get_goal_progression_alltime` once per goal. Out of
   Unit 09's stated scope, which was the dashboard payload.

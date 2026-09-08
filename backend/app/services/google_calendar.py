@@ -89,7 +89,11 @@ class GoogleCalendarClient:
                 logger.info(f"Created calendar event {result['id']} for rep {rep.id}")
                 return result["id"]
             except Exception as e:
-                logger.warning(f"Calendar sync skipped: {e}")
+                # Swallowed, per technical invariant 5 — a third-party call must
+                # never raise into a request handler. Logged at error with the rep
+                # id, because the alternative is a rep that is silently and
+                # permanently unsynced with nothing naming it.
+                logger.error("Calendar event creation failed for rep %s: %s", rep.id, e)
                 return None
 
         return await asyncio.to_thread(_create)
@@ -113,7 +117,32 @@ class GoogleCalendarClient:
                 ).execute()
                 logger.info(f"Updated calendar event {event_id} to color {color_id}")
             except Exception as e:
-                logger.warning(f"Calendar sync skipped: {e}")
+                logger.error("Calendar colour patch failed for event %s: %s", event_id, e)
+
+        await asyncio.to_thread(_patch)
+
+    async def patch_time(
+        self, event_id: str, start_dt: datetime, end_dt: datetime, tz: ZoneInfo
+    ) -> None:
+        """
+        Move an existing event. Without this a rescheduled rep leaves its event
+        at the old time forever, and the calendar stops being a mirror.
+        """
+
+        def _patch():
+            try:
+                service = self._build_service()
+                service.events().patch(
+                    calendarId="primary",
+                    eventId=event_id,
+                    body={
+                        "start": {"dateTime": start_dt.isoformat(), "timeZone": str(tz)},
+                        "end": {"dateTime": end_dt.isoformat(), "timeZone": str(tz)},
+                    },
+                ).execute()
+                logger.info("Moved calendar event %s to %s", event_id, start_dt.isoformat())
+            except Exception as e:
+                logger.error("Calendar time patch failed for event %s: %s", event_id, e)
 
         await asyncio.to_thread(_patch)
 
@@ -134,6 +163,6 @@ class GoogleCalendarClient:
                 ).execute()
                 logger.info(f"Deleted calendar event {event_id}")
             except Exception as e:
-                logger.warning(f"Calendar sync skipped: {e}")
+                logger.error("Calendar delete failed for event %s: %s", event_id, e)
 
         await asyncio.to_thread(_delete)

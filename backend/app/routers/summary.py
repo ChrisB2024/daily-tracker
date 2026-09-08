@@ -37,6 +37,7 @@ class RepInSummary(BaseModel):
     status: str
     duration_minutes: int
     completed_at: str | None = None
+    calendar_event_id: str | None = None
 
     class Config:
         from_attributes = True
@@ -84,6 +85,9 @@ class GoalFirstRepRateOut(BaseModel):
 
 class DashboardSummary(BaseModel):
     today_date: date
+    # Whether calendar sync is configured. Without this the UI cannot tell a rep
+    # that failed to sync from one that was never meant to have an event.
+    calendar_enabled: bool
     daily_score: int
     week_total: int
     weekly_pr: int
@@ -182,6 +186,7 @@ async def get_summary(
 
     return DashboardSummary(
         today_date=target_date,
+        calendar_enabled=settings.google_calendar_enabled,
         daily_score=daily_score,
         week_total=week_total,
         weekly_pr=weekly_pr,
