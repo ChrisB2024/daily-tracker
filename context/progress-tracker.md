@@ -130,6 +130,13 @@ it before starting anything else.**
   `on_event` hooks became a `lifespan` handler; ports agree at 8000 across the
   Dockerfile, README and Vite proxy; zero `TODO (Chris)` markers remain;
   `backend/README.md` describes the system as it is.
+- **Unit 11 — Persist `WeeklySummary`** (2026-09-07). One row per week, upserted
+  on a unique `week_start_date`, holding the debrief's numbers only. Prose is
+  not stored. `delivered_at` is stamped only when the email actually sends.
+- **Unit 12 — Past debriefs in History** (2026-09-07). `GET /history/debriefs`
+  behind an explicit response model, plus a collapsible list in History showing
+  reps completed, the PR verdict, chains held with deltas, what broke and when,
+  and the most avoided rep type.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -152,8 +159,14 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 7. ~~**Debrief inputs**~~ — shipped 2026-09-07.
 8. ~~**Debrief prompt and tone**~~ — shipped 2026-09-07.
 9. ~~**Kill the N+1s**~~ — shipped 2026-09-07.
-10. ~~**Calendar sync integrity**~~ — shipped 2026-09-07. · 11. **Persist `WeeklySummary`** ·
-    12. **Past debriefs in History** · ~~13. **Delete dead code**~~ — shipped 2026-09-07.
+10. ~~**Calendar sync integrity**~~ · ~~11. **Persist `WeeklySummary`**~~ ·
+    ~~12. **Past debriefs in History**~~ · ~~13. **Delete dead code**~~ — all
+    shipped 2026-09-07.
+
+**All thirteen units are shipped.** What remains is listed under Open Questions
+and Known Debt, plus one unit the build plan did not anticipate: the 60-day
+sparkline still uses pre-grace-day chain math, so it disagrees with the number
+rendered beside it (see Known Violations in `architecture.md`).
 
 Deferred for lack of a decision, not for lack of value: push notification,
 weekly-target chain rules, weekly PR scope, paused goals in the debrief,
@@ -204,6 +217,19 @@ The agent must not answer these on its own.
   real use?
 
 ## Decisions
+
+- **Debrief prose is not persisted; only its numbers are** (2026-09-07) — S2
+  permits an unauthenticated API precisely because the database holds rep
+  metadata. A stored week-by-week narrative of what Chris works on and avoids is
+  a different class of data, and Unit 12 would have made it browsable to anyone
+  with the URL. · Traded away: History shows figures rather than prose, and
+  rereading a past debrief in words means regenerating it, which costs an API
+  call. S2 stays true as written.
+- **A failed migration stops the deploy** (2026-09-07) — `|| true` dropped from
+  the Dockerfile; Railway keeps serving the previous container. · Traded away: a
+  broken migration now blocks a release outright, which is why `|| true` was
+  added in the first place. The mitigation is verifying migrations locally — the
+  scratch-database round-trip used in Unit 11 is the pattern.
 
 - **The first-rep rate is per goal, over days a first rep was scheduled**
   (2026-09-07) — asked all-goals-at-once it is almost always zero, and counting
