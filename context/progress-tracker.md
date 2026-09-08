@@ -104,6 +104,13 @@ it before starting anything else.**
   most-avoided rep types — the last ranked by completed-against-expected, not
   raw count. `get_chains` gained an `as_of` date; `_walk_chain` became public
   `walk_chain` so the debrief walks identical semantics rather than a copy.
+- **Unit 08 — Debrief prompt and tone** (2026-09-07). Findings, not
+  encouragement: prohibitions stated as absolute rules with `readme.md`'s own
+  worked example as the voice anchor, fed the full Unit 07 payload. Model
+  `claude-opus-4-8` -> `claude-opus-5` with adaptive thinking, `max_tokens`
+  300 -> 2000. `stop_reason` checked for refusal and truncation. A failed call
+  returns a fixed sentence instead of the exception string, which previously
+  would have emailed an auth error as that week's debrief.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -124,7 +131,7 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 5. ~~**End-of-day sweep**~~ — shipped 2026-09-07.
 6. ~~**Fix `first_rep_rate`**~~ — shipped 2026-09-07.
 7. ~~**Debrief inputs**~~ — shipped 2026-09-07.
-8. **Debrief prompt and tone** — findings, not encouragement.
+8. ~~**Debrief prompt and tone**~~ — shipped 2026-09-07.
 9. **Kill the N+1s** — deliberately after the units that rewrite those queries.
 10. **Calendar sync integrity** · 11. **Persist `WeeklySummary`** ·
     12. **Past debriefs in History** · 13. **Delete dead code.**

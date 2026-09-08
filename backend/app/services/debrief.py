@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
+import logging
 
 from app.models import Rep, RepStatus, RepType, RepTypeStatus, Goal
 from sqlalchemy.orm import selectinload
@@ -22,6 +23,8 @@ from app.services.summary import (
     get_first_rep_rate,
 )
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def get_weekly_summary_data(session: AsyncSession, target_date: date, tz: ZoneInfo) -> dict:
@@ -212,11 +215,106 @@ async def get_weekly_summary_data(session: AsyncSession, target_date: date, tz: 
     }
 
 
+def _format_week(w: dict) -> str:
+    """Render the payload as plain lines for the prompt. Data only, no framing."""
+    lines = [
+        f"Week: {w['week_start']} to {w['week_end']}",
+        f"Reps completed: {w['completed']} of {w['total_reps']} scheduled ({w['missed']} missed, {w['completion_rate']}% completion)",
+        f"Weekly total: {w['week_total']}. All-time PR: {w['weekly_pr']}. This week: {w['pr_status']}.",
+        "",
+        "Chains (current, previous week, change):",
+    ]
+    if w["chains"]:
+        for c in w["chains"]:
+            prev = "no prior week" if c["previous"] is None else f"was {c['previous']}"
+            delta = "" if c["delta"] is None else f", {c['delta']:+d}"
+            lines.append(
+                f"  {c['rep_type_name']} ({c['goal_title']}): {c['current']} days, {prev}{delta}"
+            )
+    else:
+        lines.append("  none")
+
+    lines.append("")
+    if w["broken_chains"]:
+        lines.append("Chains that broke this week:")
+        for b in w["broken_chains"]:
+            lines.append(f"  {b['rep_type_name']} ({b['goal_title']}) broke on {b['broke_on']}")
+    else:
+        lines.append("No chains broke this week.")
+
+    lines.append("")
+    lines.append("First rep before noon, per goal:")
+    if w["first_rep_rates"]:
+        for r in w["first_rep_rates"]:
+            if r["days_scheduled"] == 0:
+                lines.append(f"  {r['goal_title']}: no first rep scheduled this week")
+            else:
+                lines.append(
+                    f"  {r['goal_title']}: {r['days_hit']} of {r['days_scheduled']} scheduled days"
+                    f" ({round(r['rate'] * 100)}%)"
+                )
+    else:
+        lines.append("  no rep type is flagged as a first rep")
+
+    lines.append("")
+    if w["most_completed"]:
+        m = w["most_completed"]
+        lines.append(f"Most completed: {m['rep_type_name']} ({m['goal_title']}), {m['completed']} reps")
+    if w["most_avoided"]:
+        a = w["most_avoided"]
+        lines.append(
+            f"Most avoided: {a['rep_type_name']} ({a['goal_title']}), "
+            f"{a['completed']} of {a['expected']} expected"
+        )
+
+    lines.append("")
+    lines.append("Per goal:")
+    for g in w["goals"].values():
+        lines.append(
+            f"  {g['goal_title']}: {g['completed']} completed, {g['missed']} missed, {g['pending']} pending"
+        )
+    return "\n".join(lines)
+
+
+# Written to be spoken aloud, so no markdown, no lists, no headers. The worked
+# example is readme.md's own target output and carries the voice better than any
+# description of it would.
+DEBRIEF_SYSTEM = """You write one weekly debrief for Chris, who tracks his work as binary reps \
+tagged to goals. You have been watching the numbers all week. You are not a coach and not an app.
+
+Report findings. Chains, numbers, patterns, and what they imply. Nothing else.
+
+Rules, all absolute:
+- Do not congratulate, encourage, reassure, or motivate. No "great job", no "keep it up", no "you've got this".
+- No emoji. No exclamation marks. No motivational quotes.
+- Every sentence must depend on the numbers. If a sentence would read the same with different data, delete it.
+- Name specific rep types, goals and figures. Never "some goals" or "a few reps".
+- Plain spoken prose. No markdown, no bullet points, no headings — this is read aloud.
+- Do not invent data. If something is not in the numbers, do not claim it.
+- End with one question that names a specific rep and a specific goal.
+
+This is the target voice and length:
+
+Chris - weekly total: 23 reps. Below your PR of 28 but above floor (15).
+
+Chains: Outbound rep at 6 days, longest this quarter. Session rep at 12 days, matched PR. Build rep broken Tuesday, restarted Wednesday - back to 4 days. Skill rep broken Thursday, not yet restarted.
+
+First-rep-before-noon rate: 5/7 days (71%). The two days you missed the first rep, total reps for that day were 1 and 2. Pattern confirmed: starting predicts the day.
+
+Most-completed: Session rep (5/5). Most-avoided: Outbound rep on the PlumbLine goal - 2 of 5 targeted days, third week below floor. Pattern is consistent.
+
+Worth asking: what is the first PlumbLine rep, and why isn't it happening before noon?"""
+
+DEBRIEF_UNAVAILABLE = "This week's debrief could not be generated."
+
+
 async def generate_debrief_text(week_data: dict) -> str:
     """
-    Generate a natural debrief summary using Claude.
+    Turn the week's numbers into findings.
 
-    Takes week's data and creates a personalized audio-friendly summary.
+    readme.md forbids the encouraging register outright: "No motivational quotes.
+    No emojis. No 'great job!' - just findings, chains, numbers, and patterns."
+    "The Sunday debrief feels generic" is a stated V1-failure condition.
     """
     if not settings.claude_api_key:
         return "Debrief feature not configured. Add CLAUDE_API_KEY to .env"
@@ -225,48 +323,32 @@ async def generate_debrief_text(week_data: dict) -> str:
 
     try:
         client = Anthropic(api_key=settings.claude_api_key)
-    except Exception as e:
-        return f"Failed to initialize Claude: {str(e)}"
-
-    # Build context for Claude
-    goals_summary = "\n".join(
-        [
-            f"- {goal['goal_title']}: {goal['completed']} completed, {goal['missed']} missed"
-            for goal in week_data["goals"].values()
-        ]
-    )
-
-    prompt = f"""
-You are a personal coach giving a brief, encouraging weekly debrief. Based on this week's data, write a 2-3 sentence audio-friendly summary that:
-1. Acknowledges progress (completed reps, completion rate)
-2. Mentions any patterns or wins
-3. Is conversational and motivating (for text-to-speech)
-
-Keep it natural and spoken, not written. No bullet points or technical language.
-
-Week: {week_data['week_start']} to {week_data['week_end']}
-Total reps: {week_data['total_reps']}
-Completed: {week_data['completed']}
-Missed: {week_data['missed']}
-Completion rate: {week_data['completion_rate']}%
-
-Goals this week:
-{goals_summary}
-
-Write the debrief summary now:
-"""
-
-    try:
         message = await asyncio.to_thread(
             lambda: client.messages.create(
-                model="claude-opus-4-8",
-                max_tokens=300,
-                messages=[{"role": "user", "content": prompt}],
+                model="claude-opus-5",
+                max_tokens=2000,
+                # Pattern analysis over a week of behaviour, not formatting. This
+                # runs once a week in a background job — the cheapest place in the
+                # system to spend latency and tokens.
+                thinking={"type": "adaptive"},
+                system=DEBRIEF_SYSTEM,
+                messages=[{"role": "user", "content": _format_week(week_data)}],
             )
         )
-        return message.content[0].text
-    except Exception as e:
-        return f"Failed to generate summary: {str(e)}"
+    except Exception:
+        # Never surface the exception text: an auth failure's message is exactly
+        # the kind of thing that would put a key fragment into an email.
+        logger.exception("Debrief generation failed")
+        return DEBRIEF_UNAVAILABLE
+
+    if message.stop_reason == "refusal":
+        logger.error("Debrief refused: %s", getattr(message, "stop_details", None))
+        return DEBRIEF_UNAVAILABLE
+    if message.stop_reason == "max_tokens":
+        logger.warning("Debrief hit max_tokens — output truncated")
+
+    text = "".join(b.text for b in message.content if b.type == "text").strip()
+    return text or DEBRIEF_UNAVAILABLE
 
 
 async def generate_debrief_audio_bytes(text: str) -> bytes:

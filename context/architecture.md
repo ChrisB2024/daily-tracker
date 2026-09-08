@@ -208,7 +208,6 @@ what it costs the product.
 | Invariant | Violated at | Bug, or soften the rule? |
 | --------- | ----------- | ------------------------ |
 | Product 4 — weekly-only chains | `backend/app/services/summary.py` — `get_chains` | **Open, carved out of Unit 02.** `readme.md` says a rep type with only a `weekly_target` chains per *week*, and leaves the edge cases TBD. No such rep type exists today (every one has `daily_floor = 1`), so they fall through to the daily walk. Decide the weekly rule before creating one. |
-| Product 6 — findings, not encouragement | `backend/app/services/debrief.py:100` | **Bug.** The prompt asks Claude for a "personal coach… encouraging… motivating" summary. The readme forbids exactly this, and "the debrief feels generic" is a stated V1-failure condition. |
 | Product 3 — evidence survives | `backend/app/routers/goals.py:98-104` (`?hard=true`) | **Soften, with the reason recorded.** A deliberate escape hatch for goals created by mistake. It is the one path that destroys reps, it is confirmed twice in the UI, and it should stay the only one. |
 | Product 4 — archived rep types | `get_chains` and `get_rep_type_analytics` in `summary.py` both `select(RepType)` with no status filter | **Bug.** Archived rep types keep appearing in chains and analytics, so a domain Chris paused still occupies the dashboard. |
 | Security 4 / product honesty | `get_30day_rhythm` in `summary.py:277`, surfaced as `rhythm_30day` | **Bug (naming).** Returns the current calendar month, not 30 days. The name and the API field both misdescribe the data. |
