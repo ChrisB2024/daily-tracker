@@ -141,6 +141,10 @@ it before starting anything else.**
   headline number; `/history` batched from 7 queries to 2; every remaining
   hardcoded colour replaced with a token, including a named `--heat-*` ramp for
   the rhythm heatmap.
+- **Backend test suite** (2026-09-07). 47 `pytest` tests over the paths
+  `smoke.py` cannot reach: the chain rule, rep status transitions and the
+  deletion guard, sweep windows, archiving, the first-rep rate and the debrief
+  payload. Runs in ~2s against a per-session throwaway database.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -376,9 +380,10 @@ in `architecture.md`.
   beside it is referenced by `index.html`.
 - `debrief_enabled` requires *both* `CLAUDE_API_KEY` and `ELEVENLABS_API_KEY`,
   so there is no text-only debrief even though the readme calls audio optional.
-- No unit tests and no typecheck in CI; Ruff is configured and unused.
-  `scripts/smoke.py` covers the GET surface only — nothing exercises the
-  mutation paths (complete, sweep, create, archive) automatically.
+- No typecheck in CI; Ruff is configured and unused. Nothing runs `pytest`
+  automatically — no CI pipeline exists, so the suite only helps when someone
+  runs it.
+- No frontend tests. The React components are verified by hand in a browser.
 - Only 1 of 66 rep types is flagged `is_first_rep`, so the first-rep metric
   covers one goal. Flagging more is a product decision for Chris, not code.
 - `routers/dashboard.py` (dead, unregistered) still references the removed

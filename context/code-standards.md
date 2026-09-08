@@ -74,7 +74,8 @@ unauthenticated API (see `architecture.md` Security invariant S2).
 - Python 3.11+, `from __future__ import annotations` in every model and schema.
   SQLAlchemy 2 `Mapped[...]` / `mapped_column(...)` throughout — never the
   legacy `Column()` style. Nullability is expressed as `Mapped[str | None]`.
-- No type checker runs in CI. No test suite exists. Ruff is configured
+- No type checker runs in CI. `pytest` covers the backend (`backend/tests/`),
+  installed with `pip install -e ".[dev]"`; nothing runs it automatically. Ruff is configured
   (`line-length = 100`, `target-version = "py311"`) but is not wired to
   anything.
 - External data becomes a trusted type exactly once, at the Pydantic boundary.

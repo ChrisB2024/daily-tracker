@@ -5,7 +5,7 @@ GET /summary — returns daily score, chains, today's reps, weekly PR, first-rep
 """
 
 from datetime import date
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -39,8 +39,7 @@ class RepInSummary(BaseModel):
     completed_at: str | None = None
     calendar_event_id: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class GoalRepsInSummary(BaseModel):

@@ -22,9 +22,10 @@ sweeping one.
   `progress-tracker.md` — **they are inventory, not a to-do list for the
   current unit.** Fixing one that the spec did not name is out of scope.
 - Do not install a dependency until the unit that needs it.
-- Do not migrate the frontend to TypeScript, add a router, add a state library,
-  or add a test framework as a side effect of another unit. Each is its own
-  decision and none has been made.
+- Do not migrate the frontend to TypeScript, add a router, or add a state
+  library as a side effect of another unit. Each is its own decision and neither
+  has been made. (A backend test framework was added deliberately on
+  2026-09-07 — `pytest`, under the `dev` extra.)
 
 ## Split the Work If
 
@@ -126,15 +127,20 @@ All three layers pass, or the unit is not done.
 **Technical**
 1. Works end to end within the unit's stated scope.
 2. Invalid and hostile input handled without crashing.
-3. **`python scripts/smoke.py` passes against a running server.** Read-only, so
+3. **`pytest` passes.** 47 tests covering the chain rule, rep lifecycle and
+   deletion guard, sweep windows, archiving, the first-rep rate and the debrief
+   payload — the mutation paths `smoke.py` cannot reach because exercising them
+   writes. Runs against a throwaway database created and dropped per session;
+   it can never reach the real one.
+4. **`python scripts/smoke.py` passes against a running server.** Read-only, so
    it is safe to point at production with `--url`. It hits every GET endpoint,
    checks the response shapes the frontend reads, and asserts the no-orphan-reps
    invariant. This is the closest thing to a test suite and it must actually be
    run, not assumed — Unit 06 silently deleted a function and 500ed `/summary`,
    and only running the server found it.
-4. Anything the unit touched beyond those endpoints is verified by hand against
-   a real Postgres.
-5. `npm run lint` introduces no new errors for frontend changes (6 pre-existing
+5. Anything the unit touched beyond those is verified by hand against a real
+   Postgres.
+6. `npm run lint` introduces no new errors for frontend changes (6 pre-existing
    errors on the committed tree; the gate is "no new ones" until those clear).
 
 **Security**
