@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db.session import get_session
 from app.models import Goal, GoalStatus, WeeklySummary
-from app.services.summary import get_goal_progression_alltime
+from app.services.summary import get_goal_progressions_alltime
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -82,21 +82,18 @@ async def get_history(session: AsyncSession = Depends(get_session)):
     result = await session.execute(stmt)
     goals = result.scalars().all()
 
-    history = []
-    for goal in goals:
-        start_date = goal.created_at.date()
-        progression_data = await get_goal_progression_alltime(session, str(goal.id), start_date, settings.tz)
-        progression = [
-            ProgressionDataPoint(date=p["date"], cumulative_count=p["cumulative_count"])
-            for p in progression_data
-        ]
-        history.append(
-            GoalHistoryItem(
-                goal_id=goal.id,
-                goal_title=goal.title,
-                created_date=start_date,
-                progression=progression,
-            )
-        )
+    starts = {goal.id: goal.created_at.date() for goal in goals}
+    progressions = await get_goal_progressions_alltime(session, starts, settings.tz)
 
-    return history
+    return [
+        GoalHistoryItem(
+            goal_id=goal.id,
+            goal_title=goal.title,
+            created_date=starts[goal.id],
+            progression=[
+                ProgressionDataPoint(date=p["date"], cumulative_count=p["cumulative_count"])
+                for p in progressions.get(str(goal.id), [])
+            ],
+        )
+        for goal in goals
+    ]

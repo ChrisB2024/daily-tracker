@@ -313,7 +313,7 @@ export default function GoalsManagement({ onBack }) {
                       <p className="goal-date">Target: {goal.target_date}</p>
                     )}
                     {goal.status !== "active" && (
-                      <p className="goal-date" style={{ color: "#888" }}>Status: {goal.status}</p>
+                      <p className="goal-date" style={{ color: "var(--muted)" }}>Status: {goal.status}</p>
                     )}
                   </div>
                   <div className="goal-actions">
@@ -434,7 +434,7 @@ export default function GoalsManagement({ onBack }) {
                               <p className="duration">{repType.duration_minutes} min</p>
                               {repType.daily_floor && <p className="duration">Daily: {repType.daily_floor}</p>}
                               {repType.weekly_target && <p className="duration">Weekly: {repType.weekly_target}</p>}
-                              {repType.is_first_rep && <p className="duration" style={{ color: "#4ade80" }}>★ First rep</p>}
+                              {repType.is_first_rep && <p className="duration" style={{ color: "var(--completed)" }}>★ First rep</p>}
                             </div>
                             <div style={{ display: "flex", gap: "0.25rem" }}>
                               <button

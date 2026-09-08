@@ -56,8 +56,8 @@ function GoalProgressionChart({ goal }) {
       <svg width={width} height={height} className="progression-plot">
         <defs>
           <linearGradient id={`prog-grad-${goal.goal_id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#4ade80" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#4ade80" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--completed)" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="var(--completed)" stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -68,14 +68,14 @@ function GoalProgressionChart({ goal }) {
             x2={plotWidth}
             y1={centerY}
             y2={centerY}
-            stroke="#555"
+            stroke="var(--pending)"
             strokeWidth="0.5"
             strokeDasharray="2"
           />
 
           {/* Y axis */}
-          <line x1={0} x2={0} y1={0} y2={plotHeight} stroke="#333" strokeWidth="1" />
-          <line x1={0} x2={plotWidth} y1={plotHeight} y2={plotHeight} stroke="#333" strokeWidth="1" />
+          <line x1={0} x2={0} y1={0} y2={plotHeight} stroke="var(--border)" strokeWidth="1" />
+          <line x1={0} x2={plotWidth} y1={plotHeight} y2={plotHeight} stroke="var(--border)" strokeWidth="1" />
 
           {/* Y axis labels */}
           <text x={-8} y={-2} className="axis-label" textAnchor="end">
@@ -95,7 +95,7 @@ function GoalProgressionChart({ goal }) {
           <polyline
             points={polylinePoints}
             fill="none"
-            stroke="#4ade80"
+            stroke="var(--completed)"
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
@@ -107,8 +107,8 @@ function GoalProgressionChart({ goal }) {
                 cx={p.x}
                 cy={p.y}
                 r="2"
-                fill={isPositive(p.count) ? "#4ade80" : "#ef4444"}
-                stroke={isPositive(p.count) ? "#4ade80" : "#ef4444"}
+                fill={isPositive(p.count) ? "var(--completed)" : "var(--missed)"}
+                stroke={isPositive(p.count) ? "var(--completed)" : "var(--missed)"}
                 strokeWidth="1"
                 className="data-point"
               />

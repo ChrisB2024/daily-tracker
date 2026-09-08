@@ -137,6 +137,10 @@ it before starting anything else.**
   behind an explicit response model, plus a collapsible list in History showing
   reps completed, the PR verdict, chains held with deltas, what broke and when,
   and the most avoided rep type.
+- **Post-plan fixes** (2026-09-07). Sparkline chain math aligned with the
+  headline number; `/history` batched from 7 queries to 2; every remaining
+  hardcoded colour replaced with a token, including a named `--heat-*` ramp for
+  the rhythm heatmap.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -163,10 +167,9 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
     ~~12. **Past debriefs in History**~~ · ~~13. **Delete dead code**~~ — all
     shipped 2026-09-07.
 
-**All thirteen units are shipped.** What remains is listed under Open Questions
-and Known Debt, plus one unit the build plan did not anticipate: the 60-day
-sparkline still uses pre-grace-day chain math, so it disagrees with the number
-rendered beside it (see Known Violations in `architecture.md`).
+**All thirteen units are shipped**, plus the three follow-ups the plan did not
+anticipate. What remains needs decisions rather than code — see Open Questions.
+The Known Violations table in `architecture.md` is now empty.
 
 Deferred for lack of a decision, not for lack of value: push notification,
 weekly-target chain rules, weekly PR scope, paused goals in the debrief,
@@ -363,8 +366,6 @@ The agent must not answer these on its own.
   the marker cannot express it — `calendar_event_id` is still set. Logged at
   error only.
 
-- `/history` still calls `get_goal_progression_alltime` once per goal. Out of
-  Unit 09's stated scope, which was the dashboard payload.
 
 Known to be wrong and deliberately left alone for now. **Recorded so the agent
 stops "helpfully" fixing them** — each becomes a unit when it is scheduled, not
@@ -375,8 +376,6 @@ in `architecture.md`.
   beside it is referenced by `index.html`.
 - `debrief_enabled` requires *both* `CLAUDE_API_KEY` and `ELEVENLABS_API_KEY`,
   so there is no text-only debrief even though the readme calls audio optional.
-- The `History.jsx` and `GoalProgressionsVisualization.jsx` charts still
-  hardcode hex; Unit 03 converted only the two chain components.
 - No unit tests and no typecheck in CI; Ruff is configured and unused.
   `scripts/smoke.py` covers the GET surface only — nothing exercises the
   mutation paths (complete, sweep, create, archive) automatically.

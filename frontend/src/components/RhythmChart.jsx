@@ -50,11 +50,11 @@ export default function RhythmChart({ rhythm30day }) {
   }
 
   const getColor = (count) => {
-    if (count === 0) return "#222";
+    if (count === 0) return "var(--heat-0)";
     const intensity = count / maxCount;
-    if (intensity < 0.33) return "#4ade80";
-    if (intensity < 0.66) return "#22c55e";
-    return "#16a34a";
+    if (intensity < 0.33) return "var(--heat-1)";
+    if (intensity < 0.66) return "var(--heat-2)";
+    return "var(--heat-3)";
   };
 
   return (
@@ -94,10 +94,10 @@ export default function RhythmChart({ rhythm30day }) {
       <div className="rhythm-legend">
         <span>Less</span>
         <div className="legend-bar">
-          <div style={{ backgroundColor: "#222" }}></div>
-          <div style={{ backgroundColor: "#4ade80" }}></div>
-          <div style={{ backgroundColor: "#22c55e" }}></div>
-          <div style={{ backgroundColor: "#16a34a" }}></div>
+          <div style={{ backgroundColor: "var(--heat-0)" }}></div>
+          <div style={{ backgroundColor: "var(--completed)" }}></div>
+          <div style={{ backgroundColor: "var(--heat-2)" }}></div>
+          <div style={{ backgroundColor: "var(--heat-3)" }}></div>
         </div>
         <span>More</span>
       </div>

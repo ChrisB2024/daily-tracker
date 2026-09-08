@@ -29,6 +29,13 @@ Defined once in `:root` in `frontend/src/styles/dashboard.css`. Nine tokens,
 | Missed rep | `--missed` | `#ef4444` |
 | Divider | `--border` | `#1a2332` |
 | Elevation | `--shadow` | `rgba(0, 0, 0, 0.3)` |
+| Heatmap, no reps | `--heat-0` | `#222222` |
+| Heatmap, low | `--heat-1` | `#4ade80` |
+| Heatmap, medium | `--heat-2` | `#22c55e` |
+| Heatmap, high | `--heat-3` | `#16a34a` |
+
+The heat ramp is an intensity scale, not a status. It deliberately does not
+reuse `--completed`, whose meaning is "this rep was done".
 
 **Dark only. There is no light mode and no `prefers-color-scheme` handling — do
 not add one speculatively.**
@@ -38,13 +45,11 @@ exactly. Keep them aligned: `pending` = graphite (`colorId` 8), `completed` =
 basil (`colorId` 10), `missed` = tomato (`colorId` 11). Changing one without the
 other breaks the mirror.
 
-**Divergence — SVG charts hardcode hex.** `ChainsVisualization.jsx`,
-`GoalProgressionsVisualization.jsx` and `History.jsx` pass raw
-`#4ade80` / `#ef4444` / `#333` / `#555` to `stroke` and `fill` because SVG
-presentation attributes were written literally instead of as `var(--completed)`.
-`#333` and `#2a3544` appear only in these charts and in a few CSS rules and have
-no token at all. This is a divergence to fix, not a pattern to copy. New charts
-use `var(--…)` in `stroke`/`fill`, or take the color from a CSS class.
+**Resolved 2026-09-07: no raw hex remains in any component.** Every SVG
+`stroke`/`fill` and every inline `style` colour is a `var(--…)`, and `:root` is
+the only place a colour is defined. A wrong token name renders transparent
+rather than erroring, so verify computed styles in a browser after touching one
+— checking the markup is not enough.
 
 ## Typography
 

@@ -315,16 +315,13 @@ async def get_chain_history(
     # Set of dates with at least one completion
     completed_dates = {rep.scheduled_date for rep in completed_reps}
 
-    # Walk through days, computing chain count
+    # Same walk as the headline number — see get_chain_histories.
     history = []
-    chain_count = 0
     current = start_date
     while current <= today:
-        if current in completed_dates:
-            chain_count += 1
-        else:
-            chain_count = 0
-        history.append({"date": current.isoformat(), "chain_count": chain_count})
+        history.append(
+            {"date": current.isoformat(), "chain_count": walk_chain(completed_dates, current)}
+        )
         current += timedelta(days=1)
 
     return history
@@ -455,10 +452,15 @@ async def get_chain_histories(
     out: dict = {}
     for rt_id in rep_type_ids:
         completed_dates = dates_by_type.get(str(rt_id), set())
-        history, chain_count, current = [], 0, start_date
+        history, current = [], start_date
         while current <= today:
-            chain_count = chain_count + 1 if current in completed_dates else 0
-            history.append({"date": current.isoformat(), "chain_count": chain_count})
+            # walk_chain, not a naive consecutive-day count. The sparkline and
+            # the number rendered beside it describe the same chain and must
+            # agree — before this they did not, because Unit 02's grace-day rule
+            # was applied to one and not the other.
+            history.append(
+                {"date": current.isoformat(), "chain_count": walk_chain(completed_dates, current)}
+            )
             current += timedelta(days=1)
         out[str(rt_id)] = history
     return out
@@ -494,6 +496,55 @@ async def get_goal_progressions(
 
     out: dict = {}
     for goal_id in goal_ids:
+        daily_reps = daily_by_goal.get(str(goal_id), {})
+        history, cumulative, current = [], 0, start_date
+        while current <= today:
+            if current in daily_reps:
+                cumulative += daily_reps[current]["completed"]
+                cumulative -= daily_reps[current]["missed"]
+            history.append({"date": current.isoformat(), "cumulative_count": cumulative})
+            current += timedelta(days=1)
+        out[str(goal_id)] = history
+    return out
+
+
+async def get_goal_progressions_alltime(
+    session: AsyncSession, starts_by_goal: dict, tz: ZoneInfo
+) -> dict:
+    """
+    `get_goal_progression_alltime` for many goals in one query.
+
+    Each goal starts from its own creation date, so the windows differ; the query
+    spans the earliest of them and each series is sliced locally. /history was
+    issuing one query per goal.
+    """
+    today = datetime.now(tz).date()
+    if not starts_by_goal:
+        return {}
+
+    earliest = min(starts_by_goal.values())
+    rows = (
+        await session.execute(
+            select(Rep.goal_id, Rep.scheduled_date, Rep.status).where(
+                Rep.goal_id.in_(list(starts_by_goal.keys())),
+                Rep.scheduled_date >= earliest,
+                Rep.scheduled_date <= today,
+            )
+        )
+    ).all()
+
+    daily_by_goal: dict = {}
+    for goal_id, day, status in rows:
+        bucket = daily_by_goal.setdefault(str(goal_id), {}).setdefault(
+            day, {"completed": 0, "missed": 0}
+        )
+        if status == RepStatus.completed:
+            bucket["completed"] += 1
+        elif status == RepStatus.missed:
+            bucket["missed"] += 1
+
+    out: dict = {}
+    for goal_id, start_date in starts_by_goal.items():
         daily_reps = daily_by_goal.get(str(goal_id), {})
         history, cumulative, current = [], 0, start_date
         while current <= today:

@@ -8,6 +8,13 @@
   --missed: #ef4444;
   --border: #1a2332;
   --shadow: rgba(0, 0, 0, 0.3);
+
+  /* Rhythm heatmap intensity ramp. A scale, not a status — deliberately not
+     reusing --completed, whose meaning is "this rep was done". */
+  --heat-0: #222222;
+  --heat-1: #4ade80;
+  --heat-2: #22c55e;
+  --heat-3: #16a34a;
 }
 
 * {
