@@ -24,9 +24,16 @@ class GoogleCalendarClient:
         self.client_id = client_id
         self.client_secret = client_secret
         self.refresh_token = refresh_token
+        # Built lazily and reused for the life of this instance, so a batch of
+        # operations costs one OAuth refresh rather than one per call. Kept
+        # per-instance, never module-global: a cached access token must not
+        # outlive the request that needed it.
+        self._service = None
 
     def _build_service(self):
         """Synchronous build of the Calendar service. Called within asyncio.to_thread()."""
+        if self._service is not None:
+            return self._service
         credentials = Credentials(
             token=None,
             refresh_token=self.refresh_token,
@@ -37,7 +44,8 @@ class GoogleCalendarClient:
         )
         # Refresh to get an access token
         credentials.refresh(Request())
-        return build("calendar", "v3", credentials=credentials)
+        self._service = build("calendar", "v3", credentials=credentials)
+        return self._service
 
     async def create_event(
         self,

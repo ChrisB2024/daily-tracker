@@ -7,7 +7,7 @@ All metrics (chains, scores, PRs, first-rep rate) computed at read time from rep
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -27,42 +27,41 @@ def week_start_for(target_date: date) -> date:
 
 
 async def get_daily_score(session: AsyncSession, target_date: date, tz: ZoneInfo) -> int:
-    stmt = select(Rep).where(
+    stmt = select(func.count()).select_from(Rep).where(
         Rep.scheduled_date == target_date,
         Rep.status == RepStatus.completed,
     )
-    result = await session.execute(stmt)
-    return len(result.scalars().all())
+    return (await session.execute(stmt)).scalar_one()
 
 
 async def get_week_total(session: AsyncSession, target_date: date, tz: ZoneInfo) -> int:
     week_start = week_start_for(target_date)
     week_end = week_start + timedelta(days=7)
 
-    stmt = select(Rep).where(
+    stmt = select(func.count()).select_from(Rep).where(
         Rep.scheduled_date >= week_start,
         Rep.scheduled_date < week_end,
         Rep.status == RepStatus.completed,
     )
-    result = await session.execute(stmt)
-    return len(result.scalars().all())
+    return (await session.execute(stmt)).scalar_one()
 
 
 async def get_weekly_pr(session: AsyncSession, tz: ZoneInfo) -> int:
-    stmt = select(Rep).where(Rep.status == RepStatus.completed).order_by(Rep.scheduled_date)
-    result = await session.execute(stmt)
-    completed_reps = result.scalars().all()
+    """
+    Best-ever Monday-start week, counted in the database.
 
-    if not completed_reps:
-        return 0
-
-    # Group by week, compute totals
-    week_totals = {}
-    for rep in completed_reps:
-        week_start = week_start_for(rep.scheduled_date)
-        week_totals[week_start] = week_totals.get(week_start, 0) + 1
-
-    return max(week_totals.values()) if week_totals else 0
+    date_trunc('week') is Monday-based in Postgres, which matches
+    week_start_for() — the two must not disagree.
+    """
+    week = func.date_trunc("week", Rep.scheduled_date)
+    stmt = (
+        select(func.count())
+        .where(Rep.status == RepStatus.completed)
+        .group_by(week)
+        .order_by(func.count().desc())
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar() or 0
 
 
 def walk_chain(dates_completed: set[date], today: date) -> int:
@@ -245,7 +244,11 @@ async def get_chains(
     """
     # Archived rep types are excluded: a domain that was deliberately paused
     # should not keep occupying the dashboard.
-    stmt = select(RepType).where(RepType.status == RepTypeStatus.active)
+    stmt = (
+        select(RepType)
+        .options(selectinload(RepType.goal))
+        .where(RepType.status == RepTypeStatus.active)
+    )
     result = await session.execute(stmt)
     rep_types = result.scalars().all()
 
@@ -274,9 +277,6 @@ async def get_chains(
         chain_length = walk_chain(dates_completed, today)
 
         last_completed_date = max(dates_completed) if dates_completed else None
-
-        # Eagerly load goal
-        await session.refresh(rep_type, ["goal"])
 
         chain = ChainInfo(
             rep_type_id=str(rep_type.id),
@@ -419,6 +419,93 @@ async def get_goal_progression_alltime(
     return history
 
 
+async def get_chain_histories(
+    session: AsyncSession, rep_type_ids: list, tz: ZoneInfo, days: int = 60
+) -> dict:
+    """
+    `get_chain_history` for many rep types in one query.
+
+    The dashboard asks for a history per chain, which was a query per rep type
+    per page load. Semantics are identical to the single-item version — note
+    that includes its naive consecutive-day count, which does NOT apply the
+    grace-day rule `walk_chain` uses. That inconsistency is logged in
+    architecture.md; fixing it would change the payload and belongs to its own
+    unit.
+    """
+    today = datetime.now(tz).date()
+    start_date = today - timedelta(days=days)
+    if not rep_type_ids:
+        return {}
+
+    rows = (
+        await session.execute(
+            select(Rep.rep_type_id, Rep.scheduled_date).where(
+                Rep.rep_type_id.in_(rep_type_ids),
+                Rep.scheduled_date >= start_date,
+                Rep.scheduled_date <= today,
+                Rep.status == RepStatus.completed,
+            )
+        )
+    ).all()
+
+    dates_by_type: dict = {}
+    for rt_id, day in rows:
+        dates_by_type.setdefault(str(rt_id), set()).add(day)
+
+    out: dict = {}
+    for rt_id in rep_type_ids:
+        completed_dates = dates_by_type.get(str(rt_id), set())
+        history, chain_count, current = [], 0, start_date
+        while current <= today:
+            chain_count = chain_count + 1 if current in completed_dates else 0
+            history.append({"date": current.isoformat(), "chain_count": chain_count})
+            current += timedelta(days=1)
+        out[str(rt_id)] = history
+    return out
+
+
+async def get_goal_progressions(
+    session: AsyncSession, goal_ids: list, tz: ZoneInfo, days: int = 60
+) -> dict:
+    """`get_goal_progression` for many goals in one query. Same semantics."""
+    today = datetime.now(tz).date()
+    start_date = today - timedelta(days=days)
+    if not goal_ids:
+        return {}
+
+    rows = (
+        await session.execute(
+            select(Rep.goal_id, Rep.scheduled_date, Rep.status).where(
+                Rep.goal_id.in_(goal_ids),
+                Rep.scheduled_date >= start_date,
+                Rep.scheduled_date <= today,
+            )
+        )
+    ).all()
+
+    daily_by_goal: dict = {}
+    for goal_id, day, status in rows:
+        d = daily_by_goal.setdefault(str(goal_id), {})
+        bucket = d.setdefault(day, {"completed": 0, "missed": 0})
+        if status == RepStatus.completed:
+            bucket["completed"] += 1
+        elif status == RepStatus.missed:
+            bucket["missed"] += 1
+
+    out: dict = {}
+    for goal_id in goal_ids:
+        daily_reps = daily_by_goal.get(str(goal_id), {})
+        history, cumulative, current = [], 0, start_date
+        while current <= today:
+            if current in daily_reps:
+                cumulative += daily_reps[current]["completed"]
+                cumulative -= daily_reps[current]["missed"]
+            history.append({"date": current.isoformat(), "cumulative_count": cumulative})
+            current += timedelta(days=1)
+        out[str(goal_id)] = history
+    return out
+
+
 async def get_30day_rhythm(session: AsyncSession, tz: ZoneInfo) -> dict:
     """
     Get daily completion counts for the current calendar month (full month, day 1 to last day).
@@ -460,15 +547,12 @@ async def get_30day_rhythm(session: AsyncSession, tz: ZoneInfo) -> dict:
 async def get_today_reps(session: AsyncSession, target_date: date) -> list:
     stmt = (
         select(Rep)
+        .options(selectinload(Rep.rep_type), selectinload(Rep.goal))
         .where(Rep.scheduled_date == target_date)
         .order_by(Rep.scheduled_time)
     )
     result = await session.execute(stmt)
     reps = result.scalars().all()
-
-    # Eager-load rep_type and goal
-    for rep in reps:
-        await session.refresh(rep, ["rep_type", "goal"])
 
     # Group by goal
     goals_dict = {}
@@ -502,15 +586,12 @@ async def get_rep_type_analytics(session: AsyncSession) -> list[dict]:
     Returns list of dicts with rep_type_id, rep_type_name, goal_title, total_reps, completed_count, missed_count, completion_pct.
     """
     # Get all rep types with their goals
-    stmt = select(RepType)
+    stmt = select(RepType).options(selectinload(RepType.goal))
     result = await session.execute(stmt)
     rep_types = result.scalars().all()
 
     analytics = []
     for rep_type in rep_types:
-        # Fetch goal for this rep type
-        await session.refresh(rep_type, ["goal"])
-
         # Count all reps for this rep type
         stmt = select(Rep).where(Rep.rep_type_id == rep_type.id)
         result = await session.execute(stmt)
@@ -543,41 +624,37 @@ async def get_rep_type_analytics(session: AsyncSession) -> list[dict]:
 
 async def get_week_reps(session: AsyncSession, target_date: date, tz: ZoneInfo) -> dict:
     """
-    Get all reps for the week containing target_date, grouped by day.
+    All reps for the Mon-Sun week containing target_date, grouped by day.
 
-    Returns dict with week_start date and list of days (Mon-Sun), each with goal groups and reps.
+    One query for the week, not one per day with a refresh per rep.
     """
-    # Get week start (Monday)
     week_start = week_start_for(target_date)
+    week_end = week_start + timedelta(days=6)
 
+    stmt = (
+        select(Rep)
+        .options(selectinload(Rep.rep_type), selectinload(Rep.goal))
+        .where(Rep.scheduled_date >= week_start, Rep.scheduled_date <= week_end)
+        .order_by(Rep.scheduled_date, Rep.scheduled_time)
+    )
+    reps = (await session.execute(stmt)).scalars().all()
+
+    reps_by_day: dict = {}
+    for rep in reps:
+        reps_by_day.setdefault(rep.scheduled_date, []).append(rep)
+
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     days = []
-    for day_offset in range(7):
-        current_date = week_start + timedelta(days=day_offset)
+    for offset in range(7):
+        current_date = week_start + timedelta(days=offset)
 
-        stmt = (
-            select(Rep)
-            .where(Rep.scheduled_date == current_date)
-            .order_by(Rep.scheduled_time)
-        )
-        result = await session.execute(stmt)
-        reps = result.scalars().all()
-
-        # Eager-load rep_type and goal
-        for rep in reps:
-            await session.refresh(rep, ["rep_type", "goal"])
-
-        # Group by goal
-        goals_dict = {}
-        for rep in reps:
-            goal_id = rep.goal_id
-            if goal_id not in goals_dict:
-                goals_dict[goal_id] = {
-                    "goal_id": rep.goal_id,
-                    "goal_title": rep.goal.title,
-                    "reps": [],
-                }
-
-            goals_dict[goal_id]["reps"].append(
+        goals_dict: dict = {}
+        for rep in reps_by_day.get(current_date, []):
+            goal = goals_dict.setdefault(
+                rep.goal_id,
+                {"goal_id": rep.goal_id, "goal_title": rep.goal.title, "reps": []},
+            )
+            goal["reps"].append(
                 {
                     "rep_id": rep.id,
                     "rep_type_name": rep.rep_type.name,
@@ -588,15 +665,16 @@ async def get_week_reps(session: AsyncSession, target_date: date, tz: ZoneInfo) 
                 }
             )
 
-        day_name = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][current_date.weekday()]
-        days.append({
-            "date": current_date.isoformat(),
-            "day_name": day_name,
-            "goals_with_reps": list(goals_dict.values()),
-        })
+        days.append(
+            {
+                "date": current_date.isoformat(),
+                "day_name": day_names[current_date.weekday()],
+                "goals_with_reps": list(goals_dict.values()),
+            }
+        )
 
     return {
         "week_start": week_start.isoformat(),
-        "week_end": (week_start + timedelta(days=6)).isoformat(),
+        "week_end": week_end.isoformat(),
         "days": days,
     }

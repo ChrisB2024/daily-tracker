@@ -111,6 +111,12 @@ it before starting anything else.**
   300 -> 2000. `stop_reason` checked for refusal and truncation. A failed call
   returns a fixed sentence instead of the exception string, which previously
   would have emailed an auth error as that week's debrief.
+- **Unit 09 — Kill the N+1s** (2026-09-07). `/summary` 63 -> 27 queries and
+  115ms -> 41ms; `get_week_reps` 46 -> 3 queries. Counts moved into SQL,
+  `get_weekly_pr` groups by week in Postgres, `selectinload` replaced every
+  `refresh`-in-a-loop, and the router's per-chain and per-goal fan-outs became
+  two batch queries. One `GoogleCalendarClient` per bulk request, with its
+  service cached per instance.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -132,7 +138,7 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 6. ~~**Fix `first_rep_rate`**~~ — shipped 2026-09-07.
 7. ~~**Debrief inputs**~~ — shipped 2026-09-07.
 8. ~~**Debrief prompt and tone**~~ — shipped 2026-09-07.
-9. **Kill the N+1s** — deliberately after the units that rewrite those queries.
+9. ~~**Kill the N+1s**~~ — shipped 2026-09-07.
 10. **Calendar sync integrity** · 11. **Persist `WeeklySummary`** ·
     12. **Past debriefs in History** · 13. **Delete dead code.**
 
@@ -310,6 +316,9 @@ The agent must not answer these on its own.
   now assume repo docs other than `readme.md` and `context/` are stale.
 
 ## Known Debt
+
+- `/history` still calls `get_goal_progression_alltime` once per goal. Out of
+  Unit 09's stated scope, which was the dashboard payload.
 
 Known to be wrong and deliberately left alone for now. **Recorded so the agent
 stops "helpfully" fixing them** — each becomes a unit when it is scheduled, not

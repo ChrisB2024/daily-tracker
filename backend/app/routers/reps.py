@@ -48,21 +48,28 @@ async def create_reps_bulk(payload: RepBulkCreate, session: AsyncSession = Depen
 
     await session.commit()
 
+    # One client for the batch, built once. Constructing it per rep refreshed the
+    # OAuth token once per rep — scheduling two weeks of a daily rep meant 14
+    # serial token refreshes.
+    client = (
+        GoogleCalendarClient(
+            settings.google_client_id,
+            settings.google_client_secret,
+            settings.google_refresh_token,
+        )
+        if settings.google_calendar_enabled
+        else None
+    )
+
     for rep in created:
         await session.refresh(rep, ["rep_type", "goal"])
-        if settings.google_calendar_enabled:
-            client = GoogleCalendarClient(
-                settings.google_client_id,
-                settings.google_client_secret,
-                settings.google_refresh_token,
-            )
-            event_id = await client.create_event(
+        if client is not None:
+            rep.calendar_event_id = await client.create_event(
                 rep,
                 rep.rep_type.name,
                 rep.goal.title,
                 settings.tz,
             )
-            rep.calendar_event_id = event_id
 
     await session.commit()
     return created

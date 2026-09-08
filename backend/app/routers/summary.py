@@ -21,8 +21,8 @@ from app.services.summary import (
     get_chains,
     get_today_reps,
     get_30day_rhythm,
-    get_chain_history,
-    get_goal_progression,
+    get_chain_histories,
+    get_goal_progressions,
     get_rep_type_analytics,
     get_week_reps,
 )
@@ -144,40 +144,41 @@ async def get_summary(
     goals_with_reps = await get_today_reps(session, target_date)
     rhythm_30day = await get_30day_rhythm(session, settings.tz)
 
-    # Get goal progressions for all goals
-    goal_ids = {goal["goal_id"] for goal in goals_with_reps}
-    goal_progressions_summary = []
-    for goal_id_str in goal_ids:
-        # Find the goal title from goals_with_reps
-        goal_title = next(g["goal_title"] for g in goals_with_reps if g["goal_id"] == goal_id_str)
-        progression_data = await get_goal_progression(session, goal_id_str, settings.tz)
-        progression = [
-            ProgressionDataPoint(date=p["date"], cumulative_count=p["cumulative_count"])
-            for p in progression_data
-        ]
-        goal_progressions_summary.append(
-            GoalProgressionInSummary(
-                goal_id=goal_id_str,
-                goal_title=goal_title,
-                progression=progression,
-            )
+    # One query for every goal's progression, and one for every chain's history.
+    # Previously this issued a query per goal and a query per rep type on every
+    # dashboard load.
+    goal_ids = [goal["goal_id"] for goal in goals_with_reps]
+    progressions = await get_goal_progressions(session, goal_ids, settings.tz)
+    goal_progressions_summary = [
+        GoalProgressionInSummary(
+            goal_id=goal["goal_id"],
+            goal_title=goal["goal_title"],
+            progression=[
+                ProgressionDataPoint(date=p["date"], cumulative_count=p["cumulative_count"])
+                for p in progressions.get(str(goal["goal_id"]), [])
+            ],
         )
+        for goal in goals_with_reps
+    ]
 
-    chains_summary = []
-    for chain in chains:
-        history_data = await get_chain_history(session, chain.rep_type_id, settings.tz)
-        history = [ChainDataPoint(date=h["date"], chain_count=h["chain_count"]) for h in history_data]
-        chains_summary.append(
-            ChainInSummary(
-                rep_type_id=chain.rep_type_id,
-                rep_type_name=chain.rep_type_name,
-                goal_id=chain.goal_id,
-                goal_title=chain.goal_title,
-                current_chain=chain.current_chain,
-                last_completed_date=chain.last_completed_date,
-                history=history,
-            )
+    histories = await get_chain_histories(
+        session, [c.rep_type_id for c in chains], settings.tz
+    )
+    chains_summary = [
+        ChainInSummary(
+            rep_type_id=chain.rep_type_id,
+            rep_type_name=chain.rep_type_name,
+            goal_id=chain.goal_id,
+            goal_title=chain.goal_title,
+            current_chain=chain.current_chain,
+            last_completed_date=chain.last_completed_date,
+            history=[
+                ChainDataPoint(date=h["date"], chain_count=h["chain_count"])
+                for h in histories.get(str(chain.rep_type_id), [])
+            ],
         )
+        for chain in chains
+    ]
 
     return DashboardSummary(
         today_date=target_date,
