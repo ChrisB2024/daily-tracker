@@ -3,6 +3,8 @@ import { getSummary, markMissed as markMissedApi } from "../api";
 import Nav from "./Nav";
 import StatsHeader from "./StatsHeader";
 import FirstRepStrip from "./FirstRepStrip";
+import ChainsList from "./ChainsList";
+import ChainsVisualization from "./ChainsVisualization";
 import TodayReps from "./TodayReps";
 import RhythmChart from "./RhythmChart";
 import GoalProgressionsVisualization from "./GoalProgressionsVisualization";
@@ -80,13 +82,17 @@ export default function Dashboard() {
 
                 <FirstRepStrip rate={data.first_rep_rate} />
 
+                <ChainsList chains={data.chains} />
+
                 <RhythmChart rhythm30day={data.rhythm_30day} />
 
                 <TodayReps goals={data.goals_with_reps} onRepComplete={fetchData} />
               </div>
 
-              {data.goal_progressions.length > 0 && (
+              {(data.chains.some((c) => c.current_chain > 0) ||
+                data.goal_progressions.length > 0) && (
                 <div className="dashboard-sidebar">
+                  <ChainsVisualization chains={data.chains} />
                   <GoalProgressionsVisualization goalProgressions={data.goal_progressions} />
                 </div>
               )}

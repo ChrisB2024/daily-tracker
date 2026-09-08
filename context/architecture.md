@@ -207,7 +207,6 @@ what it costs the product.
 
 | Invariant | Violated at | Bug, or soften the rule? |
 | --------- | ----------- | ------------------------ |
-| Product 4 — chains are shown | `frontend/src/components/Dashboard.jsx` never imports `ChainsList.jsx` or `ChainsVisualization.jsx` | **Bug.** `/summary` computes chains and a 60-day history per chain, serializes them, and the dashboard drops them. The psychological core of the product is invisible. |
 | Product 4 — weekly-only chains | `backend/app/services/summary.py` — `get_chains` | **Open, carved out of Unit 02.** `readme.md` says a rep type with only a `weekly_target` chains per *week*, and leaves the edge cases TBD. No such rep type exists today (every one has `daily_floor = 1`), so they fall through to the daily walk. Decide the weekly rule before creating one. |
 | Product 6 — findings, not encouragement | `backend/app/services/debrief.py:100` | **Bug.** The prompt asks Claude for a "personal coach… encouraging… motivating" summary. The readme forbids exactly this, and "the debrief feels generic" is a stated V1-failure condition. |
 | Product 6 — debrief content | `backend/app/services/debrief.py:18-79` | **Bug.** Aggregates only completed/missed/pending per goal plus a completion rate. No chains, no PR comparison, no first-rep rate, no most-avoided rep type. The spec's step 2–4 are absent. |

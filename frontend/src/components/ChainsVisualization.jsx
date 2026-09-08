@@ -3,14 +3,25 @@ export default function ChainsVisualization({ chains }) {
     return null;
   }
 
+  // Live chains only. Production carries 53 rep types and 46 of them sit at
+  // zero — that many 240x100 charts is not a sidebar, and a wall of flat lines
+  // is not information.
+  const alive = chains
+    .filter((c) => c.current_chain > 0)
+    .sort((a, b) => b.current_chain - a.current_chain);
+
   return (
     <section className="chains-visualization">
       <h2>Streak Charts (60 Days)</h2>
-      <div className="chains-charts">
-        {chains.map((chain) => (
-          <ChainChart key={chain.rep_type_id} chain={chain} />
-        ))}
-      </div>
+      {alive.length > 0 ? (
+        <div className="chains-charts">
+          {alive.map((chain) => (
+            <ChainChart key={chain.rep_type_id} chain={chain} />
+          ))}
+        </div>
+      ) : (
+        <p className="empty">No chain is currently running.</p>
+      )}
     </section>
   );
 }
@@ -51,8 +62,8 @@ function ChainChart({ chain }) {
       <svg width={width} height={height} className="chain-plot">
         <defs>
           <linearGradient id={`grad-${chain.rep_type_id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#4ade80" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#4ade80" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--completed)" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="var(--completed)" stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -70,8 +81,8 @@ function ChainChart({ chain }) {
           ))}
 
           {/* Y axis */}
-          <line x1={0} x2={0} y1={0} y2={plotHeight} stroke="#333" strokeWidth="1" />
-          <line x1={0} x2={plotWidth} y1={plotHeight} y2={plotHeight} stroke="#333" strokeWidth="1" />
+          <line x1={0} x2={0} y1={0} y2={plotHeight} stroke="var(--border)" strokeWidth="1" />
+          <line x1={0} x2={plotWidth} y1={plotHeight} y2={plotHeight} stroke="var(--border)" strokeWidth="1" />
 
           {/* Y axis label (max value) */}
           <text x={-8} y={-2} className="axis-label" textAnchor="end">
@@ -88,7 +99,7 @@ function ChainChart({ chain }) {
           />
 
           {/* Polyline */}
-          <polyline points={polylinePoints} fill="none" stroke="#4ade80" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+          <polyline points={polylinePoints} fill="none" stroke="var(--completed)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
 
           {/* Data points */}
           {points.map((p, i) => (
@@ -97,8 +108,8 @@ function ChainChart({ chain }) {
                 cx={p.x}
                 cy={p.y}
                 r="2"
-                fill={p.count > 0 ? "#4ade80" : "transparent"}
-                stroke={p.count > 0 ? "#4ade80" : "#555"}
+                fill={p.count > 0 ? "var(--completed)" : "transparent"}
+                stroke={p.count > 0 ? "var(--completed)" : "var(--pending)"}
                 strokeWidth="1"
                 className="data-point"
               />

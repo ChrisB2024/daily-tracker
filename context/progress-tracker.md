@@ -69,6 +69,10 @@ it before starting anything else.**
   calendar events of the reps it purges, matching what single-rep delete already
   did. Three direct React state mutations (`delete repTypes[goalId]`) replaced
   with a forced reload.
+- **Unit 03 — Render chains on Today** (2026-09-07). Live chains lead, sorted
+  longest first; the 46 at zero collapse behind a one-click summary line naming
+  how many have never been completed. Sparklines for live chains only. All
+  hardcoded hex in both components replaced with tokens.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -84,8 +88,7 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 
 1. ~~**Guard rep deletion**~~ — shipped 2026-09-07.
 2. ~~**Fix chain computation**~~ — shipped 2026-09-07.
-3. **Render chains on Today** — the components are already written and the data
-   is already on the wire.
+3. ~~**Render chains on Today**~~ — shipped 2026-09-07.
 4. **One week, one timezone** — cannot be verified on the laptop; the bug only
    appears in the container.
 5. **End-of-day sweep** — automatic 23:59, plus the manual sweep's window fix.
@@ -200,6 +203,13 @@ The agent must not answer these on its own.
   async clients. · Traded away: a thread per external call.
 
 ## Model Corrections
+
+- Expected Unit 03 to be a pure wiring job because two components were already
+  written → production has 53 rep types with only 7 alive, so rendering them all
+  would have manufactured the "dashboard feels red" failure the readme warns
+  about; the unit needed a design decision the spec never anticipated → now
+  assume a spec written against local data may be wrong about scale, and check
+  production volumes before implementing any list rendering.
 
 - Expected the local database and `.env` to represent production → they are a
   separate dev environment with different data and, until 2026-09-07, a revoked

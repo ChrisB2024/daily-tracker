@@ -9,34 +9,44 @@ effect in the plan.
 
 ## Design
 
-Chains answer "is it still alive", which is a number, not a shape. So the
-**number leads**:
+Revised 2026-09-07 against production, which has **53 rep types: 7 alive, 46 at
+zero, 25 never completed once**. The original design assumed a handful and would
+have rendered 53 rows and 53 sparklines, most reading zero — the "chains feel
+unfair, the dashboard feels red" V1-failure condition, manufactured by the
+dashboard itself.
 
-- **`ChainsList` goes in `.dashboard-main`**, directly below `FirstRepStrip`
-  and above `RhythmChart`. It renders name, goal, "N days" and the last
-  completed date — the glance-value read.
-- **`ChainsVisualization` goes in `.dashboard-sidebar`**, above
-  `GoalProgressionsVisualization`. Its 240×100 sparklines are the trend read,
-  and the sidebar is where trend already lives.
+Chains answer "is it still alive", which is a number, not a shape. So the
+**number leads, and only live chains lead**:
+
+- **`ChainsList` in `.dashboard-main`**, below `FirstRepStrip`, above
+  `RhythmChart`. Chains with `current_chain > 0`, sorted longest first. Below
+  them one muted summary line — `46 at zero · 25 never completed` — that expands
+  to the full list on click, collapsed by default.
+- **`ChainsVisualization` in `.dashboard-sidebar`**, above
+  `GoalProgressionsVisualization`, sparklines **for live chains only**. Fifty-three
+  240×100 charts is not a sidebar.
+
+Hiding the zeros behind one click is not hiding the evidence: the count is
+always visible and the list is one interaction away. What it avoids is a daily
+glance dominated by rep types that have never been used.
 
 The sidebar currently renders only when `goal_progressions` is non-empty. Widen
-that condition so the sidebar appears when **either** chains or progressions
-have content, and each block inside renders independently.
+that to appear when **either** live chains or progressions have content.
 
 **Colors must come from tokens.** Both components hardcode `#4ade80`, `#ef4444`,
-`#333` and `#555` in SVG `stroke` and `fill` attributes. Replace with
-`var(--completed)`, `var(--missed)`, `var(--border)` and `var(--pending)`
-respectively. `#333` has no token and is used as an axis rule — use
-`var(--border)`. This is the divergence named in `ui-context.md`; do not
-propagate it.
+`#333` and `#555` in SVG `stroke` and `fill`. Replace with `var(--completed)`,
+`var(--missed)`, `var(--border)` and `var(--pending)`. `#333` has no token and
+serves as an axis rule — use `var(--border)`.
 
-**Empty state.** After Unit 02 a rep type with no completions appears at chain
-0, so a truly empty list means no active rep types exist at all. Render a
-`.empty` paragraph reading `No active rep types yet.` rather than an empty
-panel — per the state-coverage rule in `ui-context.md`.
+**Empty states.** No chains at all -> `No active rep types yet.` No *live*
+chains but zeros exist -> the summary line renders alone, and the sparkline
+panel states that nothing is currently running rather than drawing an empty box.
 
-A chain of 0 is not an empty state. It renders as a row reading 0, because a
-broken chain is exactly the information this view exists to deliver.
+A chain of 0 is not an empty state — it is exactly the information this view
+exists to deliver. It belongs in the collapsed list, not suppressed.
+
+**Out of scope:** `/summary` is 142 KB because it ships 53 chains × 61 history
+points. That is Unit 09's problem; do not change the endpoint here.
 
 ## Implementation
 

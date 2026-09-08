@@ -1534,3 +1534,21 @@ h3 {
   letter-spacing: 0.05em;
   vertical-align: middle;
 }
+
+.chains-toggle {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  transition: color 0.2s;
+}
+
+.chains-toggle:hover {
+  color: var(--fg);
+}
+
+.chains-zero .chain-value {
+  color: var(--muted);
+}
