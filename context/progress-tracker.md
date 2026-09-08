@@ -79,6 +79,12 @@ it before starting anything else.**
   `settings.tz` and startup now logs the resolved next fire time. Frontend
   `Dashboard` and `ChainsList` parse ISO dates as local, fixing a header that
   showed yesterday.
+- **Unit 05 — End-of-day sweep** (2026-09-07). A 23:59 job in `settings.tz`
+  closes out the day; sweep logic moved out of the router into
+  `services/sweep.py` and shared by both callers. The manual endpoint now sweeps
+  only days that have **ended**, so pressing it in the morning no longer marks
+  today's pending reps missed. The sweep job registers even when email is not
+  configured.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -96,7 +102,7 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 2. ~~**Fix chain computation**~~ — shipped 2026-09-07.
 3. ~~**Render chains on Today**~~ — shipped 2026-09-07.
 4. ~~**One week, one timezone**~~ — shipped 2026-09-07.
-5. **End-of-day sweep** — automatic 23:59, plus the manual sweep's window fix.
+5. ~~**End-of-day sweep**~~ — shipped 2026-09-07.
 6. **Fix `first_rep_rate`** — blocked in part on an open question below.
 7. **Debrief inputs** — needs 2, 4 and 6 to be correct first.
 8. **Debrief prompt and tone** — findings, not encouragement.
@@ -291,8 +297,10 @@ in `architecture.md`.
 - Vite dev proxy targets `localhost:8001`; `backend/README.md` and the
   Dockerfile both say 8000.
 - No test suite, no typecheck in CI. Ruff is configured and unused.
-- APScheduler does not backfill a missed fire. If the app is restarting at
-  21:00 Sunday or 23:59, that run is skipped silently and nothing warns.
+- APScheduler does not backfill a missed fire. The 23:59 sweep is immune —
+  it marks everything `scheduled_date <= today`, so a skipped run is repaired by
+  the next one. The Sunday debrief is not: a restart spanning 21:00 means no
+  debrief that week, and nothing warns.
 - `npm run lint` reports 6 pre-existing errors (`react-hooks/immutability` in
   `RepScheduling.jsx` and others). The Definition of Done says lint must pass;
   until these are cleared the practical gate is "no new errors".

@@ -11,11 +11,11 @@ Routes:
     POST   /reps/mark-missed   end-of-day sweep (manual trigger for Slice 1)
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -23,6 +23,7 @@ from app.db.session import get_session
 from app.models import Rep, RepStatus, RepType
 from app.schemas.rep import RepCreate, RepBulkCreate, RepRead, RepUpdate
 from app.services.google_calendar import GoogleCalendarClient
+from app.services.sweep import sweep_missed
 
 router = APIRouter(prefix="/reps", tags=["reps"])
 
@@ -199,33 +200,11 @@ async def complete_rep(rep_id: UUID, session: AsyncSession = Depends(get_session
 
 @router.post("/mark-missed", response_model=None)
 async def mark_missed(session: AsyncSession = Depends(get_session)):
-    today_date = datetime.now(tz=settings.tz).date()
-
-    # Fetch all pending reps that should be marked missed
-    stmt = select(Rep).where(Rep.status == RepStatus.pending, Rep.scheduled_date <= today_date)
-    result = await session.execute(stmt)
-    reps_to_miss = result.scalars().all()
-
-    # Extract calendar event IDs for patching
-    event_ids = [rep.calendar_event_id for rep in reps_to_miss if rep.calendar_event_id]
-
-    # Bulk update status
-    update_stmt = (
-        update(Rep)
-        .where(Rep.status == RepStatus.pending, Rep.scheduled_date <= today_date)
-        .values(status=RepStatus.missed)
-    )
-    update_result = await session.execute(update_stmt)
-    await session.commit()
-
-    # Patch calendar colors
-    if settings.google_calendar_enabled and event_ids:
-        client = GoogleCalendarClient(
-            settings.google_client_id,
-            settings.google_client_secret,
-            settings.google_refresh_token,
-        )
-        for event_id in event_ids:
-            await client.patch_color(event_id, 11)  # 11 = red
-
-    return {"marked_missed": update_result.rowcount}
+    """
+    Manual sweep. Marks pending reps missed for every day that has **ended** —
+    today is deliberately excluded, because the day is not over. The 23:59 cron
+    is what closes out today.
+    """
+    yesterday = datetime.now(tz=settings.tz).date() - timedelta(days=1)
+    swept = await sweep_missed(session, through=yesterday)
+    return {"marked_missed": swept}

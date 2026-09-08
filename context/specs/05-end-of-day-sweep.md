@@ -30,15 +30,29 @@ async def sweep_missed(session, *, through: date, include_through: bool) -> int
 Returns the number of rows updated. Keeps the existing single bulk `UPDATE` —
 do not convert it to a Python loop.
 
-### The window bug
+### The window rule — revised 2026-09-07
 
-`mark_missed` currently filters `Rep.scheduled_date <= today_date`, so pressing
-the button at 09:00 marks today's pending reps missed. Two different windows are
-needed:
+`mark_missed` filters `Rep.scheduled_date <= today_date`, so pressing the button
+at 09:00 marks today's still-pending reps missed.
 
-- **Manual endpoint** — `scheduled_date < today`. Sweeps days that have ended.
-  Pressing it at any hour is now safe.
-- **23:59 cron** — `scheduled_date == today`. Sweeps the day that is ending.
+Both callers want the same thing — *sweep every day that has ended* — and differ
+only in whether today counts as ended. So one function, one window:
+
+```
+sweep_missed(session, *, through: date) -> int
+    marks every pending rep with scheduled_date <= through as missed
+```
+
+- **23:59 cron** — `through = today`. The day is over, so today counts.
+- **Manual endpoint** — `through = today - 1 day`. Today is still open, so
+  pressing the button at any hour cannot touch it.
+
+The original spec said the cron should sweep `scheduled_date == today` exactly.
+That is wrong: APScheduler does not backfill a missed fire (logged as debt while
+building Unit 04), so a restart spanning 23:59 would strand that day's reps as
+`pending` forever, invisible to both the sweep and the user. `<= through` is
+self-healing and, at 23:59, cannot mark anything early — every day it touches
+has genuinely ended.
 
 ### The cron job
 
