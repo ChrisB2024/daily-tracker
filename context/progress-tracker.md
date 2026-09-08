@@ -92,6 +92,11 @@ it before starting anything else.**
   `first_rep_rates: [{goal_id, goal_title, rate, days_hit, days_scheduled}]`,
   with `rate: null` for "none scheduled" — which is not 0%. `FirstRepStrip`
   renders one bar per goal.
+- **Smoke test** (2026-09-07, out of band). `backend/scripts/smoke.py` — a
+  dependency-free read-only checker over every GET endpoint, response shape and
+  the no-orphan-reps invariant. Verified it catches the Unit 06 regression by
+  reverting `_walk_chain` and watching `/summary` fail. 36/36 local, 76/76
+  against production.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -133,7 +138,14 @@ until 2026-09-07, while production's was valid throughout. A local calendar test
 therefore says nothing about production. Both now hold the same working token
 (verified refreshing 2026-09-07).
 
-Production URL: `daily-tracker-production-5c0a.up.railway.app`. The Railway CLI
+**Both halves auto-deploy from `main`.** Railway rebuilds the API and Vercel
+rebuilds the frontend on every push, so a commit is live within minutes — an API
+shape change and its frontend update must ship in the same commit or production
+breaks in between.
+
+API: `daily-tracker-production-5c0a.up.railway.app` (Railway).
+Frontend: `daily-tracker-xi-olive.vercel.app` (Vercel project `daily-tracker`,
+scope `chris-projects-223a8ee5`). The Railway CLI
 is installed and authenticated; `railway link --project Daily-tracker` connects
 this directory, and `railway variables --service daily-tracker` reads config.
 Changing a Railway variable triggers an automatic redeploy.
@@ -304,9 +316,9 @@ in `architecture.md`.
 - `Dockerfile` declares `EXPOSE 8080` while the process binds 8000.
 - Vite dev proxy targets `localhost:8001`; `backend/README.md` and the
   Dockerfile both say 8000.
-- No test suite, no typecheck in CI. Ruff is configured and unused. A deleted
-  function was caught only by manually booting the server during Unit 06; a
-  smoke test hitting every endpoint would have caught it instantly.
+- No unit tests and no typecheck in CI; Ruff is configured and unused.
+  `scripts/smoke.py` covers the GET surface only — nothing exercises the
+  mutation paths (complete, sweep, create, archive) automatically.
 - Only 1 of 66 rep types is flagged `is_first_rep`, so the first-rep metric
   covers one goal. Flagging more is a product decision for Chris, not code.
 - `routers/dashboard.py` (dead, unregistered) still references the removed

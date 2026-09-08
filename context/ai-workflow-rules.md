@@ -126,11 +126,16 @@ All three layers pass, or the unit is not done.
 **Technical**
 1. Works end to end within the unit's stated scope.
 2. Invalid and hostile input handled without crashing.
-3. `uvicorn app.main:app --reload` boots clean; the touched endpoints return
-   expected shapes against a real Postgres. There is no test suite and no
-   typecheck in CI — **manual verification against a running server and a real
-   database is the bar**, and it must actually be run, not assumed.
-4. `npm run lint` passes for frontend changes.
+3. **`python scripts/smoke.py` passes against a running server.** Read-only, so
+   it is safe to point at production with `--url`. It hits every GET endpoint,
+   checks the response shapes the frontend reads, and asserts the no-orphan-reps
+   invariant. This is the closest thing to a test suite and it must actually be
+   run, not assumed — Unit 06 silently deleted a function and 500ed `/summary`,
+   and only running the server found it.
+4. Anything the unit touched beyond those endpoints is verified by hand against
+   a real Postgres.
+5. `npm run lint` introduces no new errors for frontend changes (6 pre-existing
+   errors on the committed tree; the gate is "no new ones" until those clear).
 
 **Security**
 5. No secret reachable from a response, a log line, or the client bundle.
