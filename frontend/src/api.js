@@ -153,6 +153,12 @@ export async function getHistory() {
   return response.json();
 }
 
+export async function getDebriefHistory() {
+  const response = await fetch(apiUrl(`/history/debriefs`));
+  if (!response.ok) throw new Error("Failed to fetch debrief history");
+  return response.json();
+}
+
 export async function getDebrief(date = null) {
   const params = new URLSearchParams();
   if (date) params.append("date", date);

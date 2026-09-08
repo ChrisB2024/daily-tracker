@@ -13,7 +13,9 @@ import asyncio
 import base64
 import logging
 
-from app.models import Rep, RepStatus, RepType, RepTypeStatus, Goal
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+from app.models import Rep, RepStatus, RepType, RepTypeStatus, Goal, WeeklySummary
 from sqlalchemy.orm import selectinload
 
 from app.services.summary import (
@@ -379,11 +381,59 @@ async def generate_debrief_audio_bytes(text: str) -> bytes:
         return b""
 
 
+async def store_weekly_summary(
+    session: AsyncSession, week_data: dict, delivered_at=None
+) -> None:
+    """
+    Persist the week's numbers, one row per week.
+
+    Stats only — the generated prose is deliberately not stored (see
+    models/weekly_summary.py). These come straight from the reps table and do not
+    involve Claude, so they are worth keeping even on a week where generation
+    failed.
+    """
+    rep_data = {
+        "week_start": week_data["week_start"],
+        "week_end": week_data["week_end"],
+        "total_reps": week_data["total_reps"],
+        "completed": week_data["completed"],
+        "missed": week_data["missed"],
+        "completion_rate": week_data["completion_rate"],
+        "week_total": week_data["week_total"],
+        "weekly_pr": week_data["weekly_pr"],
+        "pr_status": week_data["pr_status"],
+        "chains": week_data["chains"],
+        "first_rep_rates": week_data["first_rep_rates"],
+        "goals": list(week_data["goals"].values()),
+    }
+    patterns = {
+        "most_completed": week_data["most_completed"],
+        "most_avoided": week_data["most_avoided"],
+        "broken_chains": week_data["broken_chains"],
+    }
+
+    week_start = date.fromisoformat(week_data["week_start"])
+    values = {"rep_data": rep_data, "patterns": patterns}
+    if delivered_at is not None:
+        values["delivered_at"] = delivered_at
+
+    # Upsert: regenerating a week replaces its row rather than appending, so
+    # opening the debrief view twice cannot accumulate duplicates.
+    stmt = (
+        pg_insert(WeeklySummary)
+        .values(week_start_date=week_start, **values)
+        .on_conflict_do_update(index_elements=["week_start_date"], set_=values)
+    )
+    await session.execute(stmt)
+    await session.commit()
+
+
 async def get_debrief(session: AsyncSession, target_date: date, tz: ZoneInfo) -> dict:
     """
     Generate complete weekly debrief with text and audio.
     """
     week_data = await get_weekly_summary_data(session, target_date, tz)
+    await store_weekly_summary(session, week_data)
     summary_text = await generate_debrief_text(week_data)
     # One audio function returns bytes; base64 happens at the one call site
     # that needs it, rather than in a near-duplicate of it.

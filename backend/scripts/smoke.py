@@ -156,6 +156,18 @@ def main() -> int:
     status, h = get(base, "/history")
     check("GET /history", status == 200 and isinstance(h, list), f"status={status}")
 
+    status, dh = get(base, "/history/debriefs")
+    check("GET /history/debriefs", status == 200 and isinstance(dh, list), f"status={status}")
+    if isinstance(dh, list) and dh:
+        check("  stored summary shape",
+              has_keys(dh[0], "week_start_date", "rep_data", "patterns",
+                       "delivered_at", "created_at"))
+        # Prose is deliberately not persisted — S2 permits an open API only
+        # because the database holds rep metadata.
+        blob = json.dumps(dh[0])
+        check("  no debrief prose stored",
+              "text_summary" not in blob and "summary" not in dh[0]["rep_data"])
+
     if args.include_debrief:
         status, d = get(base, "/debrief", timeout=120)
         check("GET /debrief", status == 200 and has_keys(d, "summary", "stats"),

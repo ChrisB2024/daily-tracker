@@ -18,4 +18,7 @@ RUN pip install --upgrade pip setuptools wheel && \
 EXPOSE 8000
 
 # Run the app
-CMD sh -c "alembic upgrade head || true; uvicorn app.main:app --host 0.0.0.0 --port 8000"
+# `|| true` was removed 2026-09-07. A failed migration now stops the container,
+# so Railway keeps serving the previous one and the deploy shows as failed —
+# rather than booting green against the old schema and 500ing at runtime.
+CMD sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"

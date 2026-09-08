@@ -4,5 +4,14 @@
 from app.models.goal import Goal, GoalStatus
 from app.models.rep_type import RepType, RepTypeStatus
 from app.models.rep import Rep, RepStatus
+from app.models.weekly_summary import WeeklySummary
 
-__all__ = ["Goal", "GoalStatus", "RepType", "RepTypeStatus", "Rep", "RepStatus"]
+__all__ = [
+    "Goal",
+    "GoalStatus",
+    "RepType",
+    "RepTypeStatus",
+    "Rep",
+    "RepStatus",
+    "WeeklySummary",
+]

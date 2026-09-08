@@ -12,7 +12,12 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.config import settings
-from app.services.debrief import get_weekly_summary_data, generate_debrief_text, generate_debrief_audio_bytes
+from app.services.debrief import (
+    get_weekly_summary_data,
+    generate_debrief_text,
+    generate_debrief_audio_bytes,
+    store_weekly_summary,
+)
 from app.services.email import send_debrief_email
 from app.services.sweep import sweep_missed
 from app.db.session import AsyncSessionLocal
@@ -47,11 +52,18 @@ async def send_weekly_debrief():
 
             # Send email
             subject = f"Weekly Debrief: {week_data['week_start']} to {week_data['week_end']}"
-            await send_debrief_email(
+            sent = await send_debrief_email(
                 recipient=settings.smtp_user,
                 subject=subject,
                 summary_text=summary_text,
                 audio_bytes=audio_bytes,
+            )
+
+            # delivered_at distinguishes "generated" from "actually arrived".
+            await store_weekly_summary(
+                session,
+                week_data,
+                delivered_at=datetime.now(tz=settings.tz) if sent else None,
             )
 
         await engine.dispose()

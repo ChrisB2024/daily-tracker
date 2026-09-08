@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { getHistory } from "../api";
+import { getHistory, getDebriefHistory } from "../api";
 
 export default function History() {
   const [goals, setGoals] = useState([]);
+  const [debriefs, setDebriefs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -13,8 +14,9 @@ export default function History() {
   async function fetchHistory() {
     try {
       setLoading(true);
-      const data = await getHistory();
+      const [data, past] = await Promise.all([getHistory(), getDebriefHistory()]);
       setGoals(data);
+      setDebriefs(past);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -25,17 +27,101 @@ export default function History() {
 
   if (loading) return <div className="loading">Loading history...</div>;
   if (error) return <div className="error">Error: {error}</div>;
-  if (goals.length === 0) return <div className="empty">No goals yet.</div>;
 
   return (
     <div className="history">
+      <h2>Past Debriefs</h2>
+      {debriefs.length > 0 ? (
+        <ul className="debrief-history">
+          {debriefs.map((d) => (
+            <PastDebrief key={d.week_start_date} entry={d} />
+          ))}
+        </ul>
+      ) : (
+        <p className="empty">
+          No debriefs recorded yet. One is stored each week when the Sunday
+          debrief runs.
+        </p>
+      )}
+
       <h2>Goal History</h2>
-      <div className="history-charts">
-        {goals.map((goal) => (
-          <GoalHistoryChart key={goal.goal_id} goal={goal} />
-        ))}
-      </div>
+      {goals.length > 0 ? (
+        <div className="history-charts">
+          {goals.map((goal) => (
+            <GoalHistoryChart key={goal.goal_id} goal={goal} />
+          ))}
+        </div>
+      ) : (
+        <p className="empty">No goals yet.</p>
+      )}
     </div>
+  );
+}
+
+function PastDebrief({ entry }) {
+  const [open, setOpen] = useState(false);
+  // Older rows may predate a field added later; tolerate rather than crash.
+  const d = entry.rep_data || {};
+  const p = entry.patterns || {};
+  const chains = (d.chains || []).filter((c) => c.current > 0);
+  const broken = p.broken_chains || [];
+
+  return (
+    <li className="debrief-entry">
+      <button className="debrief-week" onClick={() => setOpen(!open)} aria-expanded={open}>
+        {open ? "▾" : "▸"} {d.week_start ?? entry.week_start_date} to {d.week_end ?? "?"}
+        <span className="debrief-headline">
+          {d.completed ?? 0} reps
+          {d.pr_status === "beat" && " · new PR"}
+          {d.pr_status === "matched" && " · matched PR"}
+          {!entry.delivered_at && " · not emailed"}
+        </span>
+      </button>
+
+      {open && (
+        <div className="debrief-body">
+          <p>
+            {d.completed ?? 0} of {d.total_reps ?? 0} scheduled, {d.missed ?? 0} missed
+            {d.weekly_pr != null && ` · week total ${d.week_total ?? 0} against a PR of ${d.weekly_pr}`}
+          </p>
+
+          <p className="debrief-label">Chains held</p>
+          {chains.length > 0 ? (
+            <ul>
+              {chains.map((c) => (
+                <li key={c.rep_type_name}>
+                  {c.rep_type_name} ({c.goal_title}) — {c.current}{" "}
+                  {c.current === 1 ? "day" : "days"}
+                  {c.delta != null && c.delta !== 0 && ` (${c.delta > 0 ? "+" : ""}${c.delta})`}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="empty">None running that week.</p>
+          )}
+
+          {broken.length > 0 && (
+            <>
+              <p className="debrief-label">Broke</p>
+              <ul>
+                {broken.map((b, i) => (
+                  <li key={`${b.rep_type_name}-${b.broke_on}-${i}`}>
+                    {b.rep_type_name} on {b.broke_on}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {p.most_avoided && (
+            <p>
+              Most avoided: {p.most_avoided.rep_type_name} ({p.most_avoided.goal_title}) —{" "}
+              {p.most_avoided.completed} of {p.most_avoided.expected} expected
+            </p>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 

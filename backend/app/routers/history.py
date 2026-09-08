@@ -5,17 +5,17 @@ Routes:
     GET /history — returns all active goals with cumulative progression from creation to today
 """
 
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.session import get_session
-from app.models import Goal, GoalStatus
+from app.models import Goal, GoalStatus, WeeklySummary
 from app.services.summary import get_goal_progression_alltime
 
 router = APIRouter(prefix="/history", tags=["history"])
@@ -31,6 +31,44 @@ class GoalHistoryItem(BaseModel):
     goal_title: str
     created_date: date
     progression: list[ProgressionDataPoint]
+
+
+class WeeklySummaryItem(BaseModel):
+    week_start_date: date
+    rep_data: dict
+    patterns: dict
+    delivered_at: datetime | None
+    created_at: datetime
+
+
+@router.get("/debriefs", response_model=list[WeeklySummaryItem])
+async def get_debrief_history(
+    limit: int = Query(20, ge=1, le=200),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Stored weekly summaries, most recent first.
+
+    Stats only — the prose is not persisted (see models/weekly_summary.py). An
+    explicit response model rather than the ORM object, so a column added later
+    is not exposed by accident.
+    """
+    stmt = (
+        select(WeeklySummary)
+        .order_by(WeeklySummary.week_start_date.desc())
+        .limit(limit)
+    )
+    rows = (await session.execute(stmt)).scalars().all()
+    return [
+        WeeklySummaryItem(
+            week_start_date=r.week_start_date,
+            rep_data=r.rep_data,
+            patterns=r.patterns,
+            delivered_at=r.delivered_at,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
 
 
 @router.get("", response_model=list[GoalHistoryItem])

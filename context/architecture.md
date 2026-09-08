@@ -21,7 +21,7 @@ code consistently follows); each one that the code currently breaks is listed in
 | TTS | `elevenlabs` SDK, `eleven_turbo_v2_5`, voice `21m00Tcm4TlvDq8ikWAM` | Audio debrief. |
 | Email | `smtplib` + Gmail SMTP (app password) | Stopgap delivery channel for the Sunday debrief. |
 | Scheduler | APScheduler `AsyncIOScheduler`, started in FastAPI's `startup` hook | In-process, one job. No external cron, no worker process. |
-| Deploy | Docker on Railway; frontend on Vercel, both auto-deploying from `main` | `CMD` runs `alembic upgrade head \|\| true` then uvicorn on port 8000, which the README and the Vite dev proxy now match. |
+| Deploy | Docker on Railway; frontend on Vercel, both auto-deploying from `main` | `CMD` runs `alembic upgrade head && uvicorn` on port 8000 — a failed migration stops the container rather than booting against the old schema, which the README and the Vite dev proxy now match. |
 
 ## Ownership Map
 
@@ -78,7 +78,13 @@ binding rather than advisory.
 - **Google Calendar** — the display copy of rep state. Event carries
   `extendedProperties.private.rep_id`, so an event can be traced back to a rep.
   Never read back.
-- **Nowhere** — debriefs (text and audio), chains, scores, PRs, rates. All
+- **Postgres, `weekly_summaries`** — one row per week holding the debrief's
+  *numbers* (`rep_data`, `patterns`) and `delivered_at`. Decided 2026-09-07:
+  the generated prose is deliberately **not** persisted, because S2 permits an
+  unauthenticated API only while the database holds rep metadata, and a
+  week-by-week narrative of what Chris works on and avoids is a different class
+  of data. It is regenerated on demand instead.
+- **Nowhere** — debrief prose and audio, chains, scores, PRs, rates. All
   ephemeral or recomputed.
 
 **Never stored in Postgres:** secrets or third-party tokens of any kind; audio
@@ -94,7 +100,7 @@ write access.
 | `RepType` | `POST /goals/{goal_id}/rep-types` — 404 if goal missing | `PATCH /rep-types/{id}` | `DELETE` → `status = archived` only. No hard delete. | Reps preserved by design (`cascade="save-update, merge"`, no delete cascade). Archiving now actually retires the type: it drops out of `get_chains` (Unit 02) and out of `GET /goals/{id}/rep-types` unless `include_archived=true` (fixed 2026-09-07). `get_rep_type_analytics` still does not filter on status. |
 | `Rep` | `POST /reps` or `POST /reps/bulk` — both assert the rep type belongs to the goal, and copy `duration_minutes` from the rep type | `PATCH /reps/{id}` (date, time, duration, notes — **does not re-sync the calendar event**) · `POST /reps/{id}/complete` · `POST /reps/mark-missed` | `DELETE /reps/{id}` — hard delete, plus calendar event deletion | Calendar event deleted with the rep. A `PATCH` that moves the rep leaves the event at the old time forever. |
 | Calendar event | Created alongside a rep; `rep.calendar_event_id` stores the id | `patch_color` on complete (10) and miss (11) | Deleted with the rep | Orphaned whenever `create_event` returns `None` (its exception handler swallows the failure), or whenever the rep is rescheduled. |
-| `WeeklySummary` | — | — | — | **Not implemented.** Specified in `readme.md`; no model, no table. Debriefs cannot be retrieved after generation. |
+| `WeeklySummary` | Generating a debrief, on demand or by the Sunday job | Upserted per week; `delivered_at` stamped when the email sends | Never deleted | Independent snapshot — holds no FK, so archiving a goal does not alter past weeks. Stats only: the generated prose is **not** stored, so S2 holds unchanged. |
 
 ## State Machines
 
