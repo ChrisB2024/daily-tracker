@@ -5,12 +5,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/summary': 'http://localhost:8001',
-      '/reps': 'http://localhost:8001',
-      '/goals': 'http://localhost:8001',
-      '/rep-types': 'http://localhost:8001',
-      '/debrief': 'http://localhost:8001',
-      '/history': 'http://localhost:8001',
+      '/summary': 'http://localhost:8000',
+      '/reps': 'http://localhost:8000',
+      '/goals': 'http://localhost:8000',
+      '/rep-types': 'http://localhost:8000',
+      '/debrief': 'http://localhost:8000',
+      '/history': 'http://localhost:8000',
     },
   },
 })

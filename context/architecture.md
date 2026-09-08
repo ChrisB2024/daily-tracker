@@ -21,7 +21,7 @@ code consistently follows); each one that the code currently breaks is listed in
 | TTS | `elevenlabs` SDK, `eleven_turbo_v2_5`, voice `21m00Tcm4TlvDq8ikWAM` | Audio debrief. |
 | Email | `smtplib` + Gmail SMTP (app password) | Stopgap delivery channel for the Sunday debrief. |
 | Scheduler | APScheduler `AsyncIOScheduler`, started in FastAPI's `startup` hook | In-process, one job. No external cron, no worker process. |
-| Deploy | Docker on Railway; frontend hosted separately via `VITE_API_URL` | `CMD` runs `alembic upgrade head \|\| true` then uvicorn on a fixed port 8000. |
+| Deploy | Docker on Railway; frontend on Vercel, both auto-deploying from `main` | `CMD` runs `alembic upgrade head \|\| true` then uvicorn on port 8000, which the README and the Vite dev proxy now match. |
 
 ## Ownership Map
 
@@ -37,11 +37,12 @@ code consistently follows); each one that the code currently breaks is listed in
 | `frontend/src/components/` | Rendering and local view state | Contain a URL or a fetch. Compute a metric the API already returns. |
 | `frontend/src/styles/dashboard.css` | Every color, spacing and layout decision | Be bypassed by inline styles — though the SVG charts currently do exactly that. |
 
-**Dead code, kept but unowned:** `backend/app/routers/dashboard.py`,
-`backend/app/templates/dashboard.html` and `backend/app/static/style.css` are
-the Slice-1/3 server-rendered dashboard. `dashboard.py` is not registered in
-`main.py`, so the Jinja dashboard is unreachable. `frontend/src/components/ChainsList.jsx`
-and `ChainsVisualization.jsx` are imported by nothing.
+**Dead code:** none outstanding. The unregistered server-rendered dashboard
+(`routers/dashboard.py`, `templates/`, `static/`) was deleted in Unit 13 along
+with the `jinja2` dependency; `ChainsList.jsx` and `ChainsVisualization.jsx`
+were wired into the dashboard by Unit 03. `frontend/public/icons.svg` is
+unreferenced but kept — `favicon.svg` beside it *is* referenced by
+`index.html`.
 
 ## Data Flow
 
@@ -213,4 +214,3 @@ what it costs the product.
 | Security 4 / product honesty | `get_30day_rhythm` in `summary.py:277`, surfaced as `rhythm_30day` | **Bug (naming).** Returns the current calendar month, not 30 days. The name and the API field both misdescribe the data. |
 | Product 4 — chain semantics | `get_chain_histories` in `backend/app/services/summary.py` | **Bug, exposed by Unit 02.** The sparkline history still counts naive consecutive days — no grace day, counting completions rather than span — so the 60-day chart disagrees with the number rendered beside it. Unit 09 preserved it deliberately, since that unit required byte-identical output. Needs its own unit. |
 | Efficiency — OAuth | `GoogleCalendarClient._build_service` refreshes credentials on every single operation, and `create_reps_bulk` constructs a fresh client per rep | **Bug.** Bulk-scheduling 14 reps performs 14 serial token refreshes and 14 service builds. |
-| Security 1 — CORS | `backend/app/main.py:11-16` | **Soften and record.** `allow_origins=["*"]` with `allow_credentials=True` is a combination browsers reject outright, so the credentials flag does nothing. Given S2 there is nothing to protect, but the config is misleading and should say what it means. |

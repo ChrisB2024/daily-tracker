@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
@@ -15,7 +16,21 @@ logging.basicConfig(
     format="%(levelname)s [%(name)s] %(message)s",
 )
 
-app = FastAPI(title="Daily Tracker", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Replaces the deprecated on_event("startup"/"shutdown") hooks. The scheduler
+    is started here and stopped on the way out; APScheduler's AsyncIOScheduler
+    needs a running event loop, which this context has.
+    """
+    init_scheduler()
+    yield
+    if scheduler.running:
+        scheduler.shutdown()
+
+
+app = FastAPI(title="Daily Tracker", version="0.1.0", lifespan=lifespan)
 
 # Open origins, no credentials. allow_origins=["*"] with allow_credentials=True
 # is a combination browsers reject outright, so the credentials flag never did
@@ -36,17 +51,6 @@ app.include_router(reps.router)
 app.include_router(summary.router)
 app.include_router(debrief.router)
 app.include_router(history.router)
-
-
-@app.on_event("startup")
-async def startup():
-    init_scheduler()
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    if scheduler.running:
-        scheduler.shutdown()
 
 
 @app.get("/healthz")

@@ -123,6 +123,13 @@ it before starting anything else.**
   moves its calendar event via a new `patch_time`; editing only `notes` makes no
   call. `/summary` carries `calendar_enabled` and each rep's
   `calendar_event_id`, so the UI can tell "sync failed" from "sync is off".
+- **Unit 13 — Delete dead code** (2026-09-07, three commits). The unregistered
+  Jinja dashboard, its template, stylesheet, `StaticFiles` mount and the
+  `jinja2` dependency are gone. `print()` replaced with configured logging;
+  duplicate audio function collapsed; CORS states what it does; deprecated
+  `on_event` hooks became a `lifespan` handler; ports agree at 8000 across the
+  Dockerfile, README and Vite proxy; zero `TODO (Chris)` markers remain;
+  `backend/README.md` describes the system as it is.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -146,7 +153,7 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 8. ~~**Debrief prompt and tone**~~ — shipped 2026-09-07.
 9. ~~**Kill the N+1s**~~ — shipped 2026-09-07.
 10. ~~**Calendar sync integrity**~~ — shipped 2026-09-07. · 11. **Persist `WeeklySummary`** ·
-    12. **Past debriefs in History** · 13. **Delete dead code.**
+    12. **Past debriefs in History** · ~~13. **Delete dead code**~~ — shipped 2026-09-07.
 
 Deferred for lack of a decision, not for lack of value: push notification,
 weekly-target chain rules, weekly PR scope, paused goals in the debrief,
@@ -338,25 +345,12 @@ stops "helpfully" fixing them** — each becomes a unit when it is scheduled, no
 when it is noticed. The full list with `file:line` is the Known Violations table
 in `architecture.md`.
 
-- Stale `# TODO (Chris):` comments on already-implemented columns throughout
-  `backend/app/models/rep_type.py`, plus an unanswered TODO question in
-  `config.py` and a reference to a nonexistent `models/task.py` in
-  `alembic/env.py`.
-- `backend/README.md` is a completed TODO list.
-- Dead server-rendered dashboard: `routers/dashboard.py`, `templates/`,
-  `static/`.
-- Dead frontend components: `ChainsList.jsx`, `ChainsVisualization.jsx` (dead
-  only until unit 1 wires them in), and unreferenced `public/icons.svg`.
-- `print()` instead of `logging` in `scheduler.py`, `email.py`, `debrief.py`.
-- Duplicate near-identical functions `generate_debrief_audio_bytes` and
-  `generate_debrief_audio` in `services/debrief.py`.
+- `frontend/public/icons.svg` is unreferenced. Kept deliberately — `favicon.svg`
+  beside it is referenced by `index.html`.
 - `debrief_enabled` requires *both* `CLAUDE_API_KEY` and `ELEVENLABS_API_KEY`,
   so there is no text-only debrief even though the readme calls audio optional.
-- SVG charts hardcode hex instead of using CSS custom properties.
-- `@app.on_event("startup")` is deprecated in favour of a lifespan handler.
-- `Dockerfile` declares `EXPOSE 8080` while the process binds 8000.
-- Vite dev proxy targets `localhost:8001`; `backend/README.md` and the
-  Dockerfile both say 8000.
+- The `History.jsx` and `GoalProgressionsVisualization.jsx` charts still
+  hardcode hex; Unit 03 converted only the two chain components.
 - No unit tests and no typecheck in CI; Ruff is configured and unused.
   `scripts/smoke.py` covers the GET surface only — nothing exercises the
   mutation paths (complete, sweep, create, archive) automatically.
