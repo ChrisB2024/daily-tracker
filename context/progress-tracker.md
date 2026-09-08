@@ -225,6 +225,18 @@ The agent must not answer these on its own.
 
 ## Decisions
 
+- **First reps flagged on the six goals with real volume** (2026-09-07) — the
+  flag was set on 1 of 66 rep types, so `readme.md`'s "headline behavioural
+  metric" described one goal. Each goal's most-scheduled rep type is now its
+  morning non-negotiable: AI and Ml Engineering (Learning and exercises, 27
+  scheduled), Angle (Build project, 25), Hiclone (Build Hiclone website, 18),
+  personal project (Michael Oneyze Projects, 8), Physical Exercise (push day and
+  pull day, 8 each), plus Orange (Build product), already set. · Traded away:
+  School and Hitwin are unmeasured, having 3 and 4 reps scheduled in total —
+  not enough for a morning non-negotiable to mean anything. Applied through
+  `PATCH /rep-types/{id}`; the prior state of all 43 rep types was captured
+  first, so it is reversible.
+
 - **Debrief prose is not persisted; only its numbers are** (2026-09-07) — S2
   permits an unauthenticated API precisely because the database holds rep
   metadata. A stored week-by-week narrative of what Chris works on and avoids is
@@ -363,6 +375,14 @@ The agent must not answer these on its own.
 
 ## Known Debt
 
+- **Physical Exercise has duplicate rep types.** Two "push day", two "pull day"
+  and two "Legs day", all created 2026-07-02, and **both sets are still being
+  scheduled against** (the secondary push day was last used 2026-09-03). Only
+  the primary of each is flagged `is_first_rep` — flagging both would require
+  both duplicates be completed before noon on a day they were both scheduled,
+  which would read as a miss every time. Archiving the unused ones is a data
+  cleanup for Chris; archiving now genuinely retires a rep type.
+
 - An event deleted by hand in Google Calendar leaves a stale
   `calendar_event_id`; one-way sync means the tracker cannot know. Reconciliation
   is a larger feature and is not planned.
@@ -384,8 +404,6 @@ in `architecture.md`.
   automatically — no CI pipeline exists, so the suite only helps when someone
   runs it.
 - No frontend tests. The React components are verified by hand in a browser.
-- Only 1 of 66 rep types is flagged `is_first_rep`, so the first-rep metric
-  covers one goal. Flagging more is a product decision for Chris, not code.
 - `routers/dashboard.py` (dead, unregistered) still references the removed
   `first_rep_rate` float. Unit 13 deletes the file.
 - APScheduler does not backfill a missed fire. The 23:59 sweep is immune —
