@@ -29,6 +29,13 @@ export default function GoalsManagement({ onBack }) {
     loadGoals();
   }, []);
 
+  // Showing or hiding archived items changes what the API returns, so the open
+  // goal's rep types have to be refetched rather than filtered client-side.
+  useEffect(() => {
+    if (expandedGoal) loadRepTypes(expandedGoal, { force: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showArchived]);
+
   async function loadGoals() {
     try {
       setLoading(true);
@@ -42,10 +49,10 @@ export default function GoalsManagement({ onBack }) {
     }
   }
 
-  async function loadRepTypes(goalId) {
-    if (repTypes[goalId]) return;
+  async function loadRepTypes(goalId, { force = false } = {}) {
+    if (!force && repTypes[goalId]) return;
     try {
-      const data = await getRepTypes(goalId);
+      const data = await getRepTypes(goalId, showArchived);
       setRepTypes((prev) => ({ ...prev, [goalId]: data }));
     } catch (err) {
       alert("Failed to load rep types: " + err.message);
@@ -144,8 +151,7 @@ export default function GoalsManagement({ onBack }) {
       if (data.criterion === "") data.criterion = null;
       await updateRepType(repTypeId, data);
       setEditingRepTypeId(null);
-      delete repTypes[goalId];
-      loadRepTypes(goalId);
+      loadRepTypes(goalId, { force: true });
     } catch (err) {
       alert("Failed to update rep type: " + err.message);
     }
@@ -171,8 +177,7 @@ export default function GoalsManagement({ onBack }) {
         duration_minutes: duration,
       });
       form.reset();
-      delete repTypes[goalId];
-      loadRepTypes(goalId);
+      loadRepTypes(goalId, { force: true });
     } catch (err) {
       alert("Failed to create rep type: " + err.message);
     }
@@ -182,8 +187,7 @@ export default function GoalsManagement({ onBack }) {
     if (!confirm("Archive this rep type?")) return;
     try {
       await deleteRepType(repTypeId);
-      delete repTypes[goalId];
-      loadRepTypes(goalId);
+      loadRepTypes(goalId, { force: true });
     } catch (err) {
       alert("Failed to delete rep type: " + err.message);
     }
@@ -423,6 +427,9 @@ export default function GoalsManagement({ onBack }) {
                           <>
                             <div>
                               <strong>{repType.name}</strong>
+                              {repType.status === "archived" && (
+                                <span className="archived-tag">archived</span>
+                              )}
                               <p className="criterion">{repType.criterion}</p>
                               <p className="duration">{repType.duration_minutes} min</p>
                               {repType.daily_floor && <p className="duration">Daily: {repType.daily_floor}</p>}
@@ -438,14 +445,16 @@ export default function GoalsManagement({ onBack }) {
                               >
                                 ✎
                               </button>
-                              <button
-                                onClick={() =>
-                                  handleDeleteRepType(repType.id, goal.id)
-                                }
-                                className="btn-danger-small"
-                              >
-                                ×
-                              </button>
+                              {repType.status !== "archived" && (
+                                <button
+                                  onClick={() =>
+                                    handleDeleteRepType(repType.id, goal.id)
+                                  }
+                                  className="btn-danger-small"
+                                >
+                                  ×
+                                </button>
+                              )}
                             </div>
                           </>
                         )}

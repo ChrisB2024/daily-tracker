@@ -70,8 +70,9 @@ export async function deleteGoalHard(goalId) {
 }
 
 // Rep Types CRUD
-export async function getRepTypes(goalId) {
-  const response = await fetch(apiUrl(`/goals/${goalId}/rep-types`));
+export async function getRepTypes(goalId, includeArchived = false) {
+  const qs = includeArchived ? "?include_archived=true" : "";
+  const response = await fetch(apiUrl(`/goals/${goalId}/rep-types${qs}`));
   if (!response.ok) throw new Error("Failed to fetch rep types");
   return response.json();
 }

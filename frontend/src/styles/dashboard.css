@@ -1522,3 +1522,15 @@ h3 {
     gap: 1rem;
   }
 }
+
+.archived-tag {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}

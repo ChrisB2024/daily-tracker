@@ -62,6 +62,13 @@ it before starting anything else.**
   chain, length as calendar span, today never judged. Archived rep types
   excluded; rep types with no completions emitted at 0 instead of vanishing.
   Weekly-only chaining still carved out — no live case.
+- **Archive + delete fixes** (2026-09-07, out of band, not a numbered unit).
+  `GET /goals/{id}/rep-types` returns active only unless `?include_archived=true`,
+  so archiving a rep type now removes it from management and from the scheduling
+  dropdown instead of doing nothing visible. Goal hard-delete deletes the
+  calendar events of the reps it purges, matching what single-rep delete already
+  did. Three direct React state mutations (`delete repTypes[goalId]`) replaced
+  with a forced reload.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -92,6 +99,16 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 Deferred for lack of a decision, not for lack of value: push notification,
 weekly-target chain rules, weekly PR scope, paused goals in the debrief,
 `?hard=true`, and whether to add tests. See the plan's **Not units yet**.
+
+## Urgent
+
+- **The Google refresh token is dead.** It returns `invalid_grant`, so every
+  calendar call fails and is swallowed. The last rep to get a calendar event was
+  2026-06-04; the 136 reps created since have none. The gray/green/red calendar
+  mirror — half the product — has not worked since early June. Re-run
+  `backend/scripts/google_oauth.py` (the headless fix for it shipped in
+  `9946db6`) to mint a new refresh token, and set it in **both** `backend/.env`
+  and Railway. Until then Unit 10 cannot be verified against a working calendar.
 
 ## Open Questions
 
@@ -176,6 +193,12 @@ The agent must not answer these on its own.
   async clients. · Traded away: a thread per external call.
 
 ## Model Corrections
+
+- Expected calendar sync to be working because the code path is intact and
+  `google_calendar_enabled` is true → the refresh token is invalid, so every
+  call fails, is logged at warning without the event id, and is dropped → now
+  assume "configured" never means "working" for a third-party integration;
+  check for evidence of successful writes, not just for credentials.
 
 - Expected the weekly-target carve-out in Unit 02 to need careful handling →
   every rep type in the database has `daily_floor = 1`, so the weekly-only

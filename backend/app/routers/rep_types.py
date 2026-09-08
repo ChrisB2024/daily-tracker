@@ -14,7 +14,7 @@ intuitive: you create+list under the parent, but read/update/delete by RepType i
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,13 +48,21 @@ async def create_rep_type(
 @router.get("/goals/{goal_id}/rep-types", response_model=list[RepTypeRead])
 async def list_rep_types_for_goal(
     goal_id: UUID,
+    include_archived: bool = Query(
+        False, description="If true, also return archived rep types."
+    ),
     session: AsyncSession = Depends(get_session),
 ):
+    # Active only by default. Archiving a rep type has to actually retire it —
+    # otherwise it keeps appearing in management and stays schedulable, which is
+    # the same as archiving doing nothing.
     stmt = (
         select(RepType)
         .where(RepType.goal_id == goal_id)
         .order_by(RepType.display_order, RepType.created_at)
     )
+    if not include_archived:
+        stmt = stmt.where(RepType.status == RepTypeStatus.active)
     result = await session.execute(stmt)
     return result.scalars().all()
 

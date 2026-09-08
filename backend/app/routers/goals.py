@@ -14,10 +14,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+from app.config import settings
 from app.db.session import get_session
 from app.models import Goal, RepType, Rep
 from app.models.goal import GoalStatus
 from app.schemas.goal import GoalCreate, GoalRead, GoalUpdate
+from app.services.google_calendar import GoogleCalendarClient
 
 router = APIRouter(prefix="/goals", tags=["goals"])
 
@@ -97,7 +99,35 @@ async def delete_goal(
         )
 
     if hard:
-        # Hard delete — permanently remove goal, rep types, and reps
+        # Hard delete — permanently remove goal, rep types, and reps.
+        # Collect the calendar events BEFORE the rows referencing them are gone.
+        # DELETE /reps/{id} already cleans up its event; without the same here, a
+        # hard delete strands every event in Google Calendar with nothing left to
+        # trace it back to.
+        event_ids = (
+            (
+                await session.execute(
+                    select(Rep.calendar_event_id).where(
+                        Rep.goal_id == goal_id,
+                        Rep.calendar_event_id.is_not(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        if settings.google_calendar_enabled and event_ids:
+            # One client for the whole batch. Building one per event would
+            # refresh the OAuth token once per rep.
+            client = GoogleCalendarClient(
+                settings.google_client_id,
+                settings.google_client_secret,
+                settings.google_refresh_token,
+            )
+            for event_id in event_ids:
+                await client.delete_event(event_id)
+
         # Delete reps first (FK constraint)
         await session.execute(delete(Rep).where(Rep.goal_id == goal_id))
         # Delete rep types
