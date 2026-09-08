@@ -1,4 +1,12 @@
 import { useEffect, useState } from "react";
+
+// "2026-09-07" through new Date() is parsed as UTC midnight and then rendered in
+// local time, which shows the previous day anywhere west of Greenwich. Same
+// helper as WeekView, History and Debrief.
+function parseISODate(dateString) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
 import { getSummary, markMissed as markMissedApi } from "../api";
 import Nav from "./Nav";
 import StatsHeader from "./StatsHeader";
@@ -67,7 +75,7 @@ export default function Dashboard() {
             <div className="dashboard-grid">
               <div className="dashboard-main">
                 <p className="today">
-                  {new Date(data.today_date).toLocaleDateString("en-US", {
+                  {parseISODate(data.today_date).toLocaleDateString("en-US", {
                     weekday: "long",
                     month: "long",
                     day: "numeric",

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 
 from app.models import Rep, RepStatus, RepType, Goal
+from app.services.summary import week_start_for
 from app.config import settings
 
 
@@ -21,8 +22,10 @@ async def get_weekly_summary_data(session: AsyncSession, target_date: date, tz: 
 
     Returns dict with completed reps by goal, chains, missed reps, etc.
     """
-    # Calculate week range (Sunday to Saturday)
-    week_start = target_date - timedelta(days=target_date.weekday() + 1)  # Sunday
+    # Mon-Sun, the same week the dashboard shows all week. Previously this
+    # derived a Sunday-start week of its own, so the Sunday 21:00 debrief
+    # reported the *previous* Sun-Sat and excluded the day it ran.
+    week_start = week_start_for(target_date)
     week_end = week_start + timedelta(days=7)
 
     # Get all reps for the week

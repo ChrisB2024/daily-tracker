@@ -1,5 +1,10 @@
 import { useState } from "react";
 
+function parseISODate(dateString) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 function ChainRow({ chain }) {
   return (
     <li className="chain">
@@ -13,9 +18,10 @@ function ChainRow({ chain }) {
       {chain.last_completed_date ? (
         <div className="chain-last">
           Last:{" "}
-          {new Date(
-            chain.last_completed_date + "T00:00:00"
-          ).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          {parseISODate(chain.last_completed_date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })}
         </div>
       ) : (
         <div className="chain-last">Never completed</div>

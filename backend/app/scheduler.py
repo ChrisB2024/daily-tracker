@@ -13,7 +13,10 @@ from app.config import settings
 from app.services.debrief import get_weekly_summary_data, generate_debrief_text, generate_debrief_audio_bytes
 from app.services.email import send_debrief_email
 
-scheduler = AsyncIOScheduler()
+# Explicit timezone. Without it APScheduler resolves the *host* zone via
+# tzlocal — America/New_York on a Mac, UTC in python:3.11-slim — so "Sunday
+# 21:00" fired at 21:00 UTC on Railway while looking correct in local dev.
+scheduler = AsyncIOScheduler(timezone=settings.tz)
 
 
 async def send_weekly_debrief():
@@ -31,7 +34,7 @@ async def send_weekly_debrief():
 
         async with async_session() as session:
             # Get this week's debrief data
-            today = date.today()
+            today = datetime.now(tz=settings.tz).date()
             week_data = await get_weekly_summary_data(session, today, settings.tz)
             summary_text = await generate_debrief_text(week_data)
             audio_bytes = await generate_debrief_audio_bytes(summary_text)
@@ -69,4 +72,7 @@ def init_scheduler():
     )
 
     scheduler.start()
-    print("✓ Scheduler started: weekly debrief job scheduled for Sunday 21:00")
+    job = scheduler.get_job("weekly_debrief")
+    # Print the resolved fire time, not the intent. This is the only way to catch
+    # a timezone regression without waiting a week for a late email.
+    print(f"✓ Scheduler started: weekly debrief next runs {job.next_run_time}")

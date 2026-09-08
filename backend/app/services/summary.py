@@ -13,6 +13,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Rep, RepStatus, RepType, RepTypeStatus, Goal
 
 
+def week_start_for(target_date: date) -> date:
+    """
+    First day of the Mon-Sun week containing `target_date`, per readme.md.
+
+    The single definition of "this week". `services/debrief.py` imports this
+    rather than deriving its own — the two previously disagreed (debrief used a
+    Sunday start), so the Sunday debrief reported on the previous Sun-Sat and
+    excluded the day it ran.
+    """
+    return target_date - timedelta(days=target_date.weekday())
+
+
 async def get_daily_score(session: AsyncSession, target_date: date, tz: ZoneInfo) -> int:
     stmt = select(Rep).where(
         Rep.scheduled_date == target_date,
@@ -23,7 +35,7 @@ async def get_daily_score(session: AsyncSession, target_date: date, tz: ZoneInfo
 
 
 async def get_week_total(session: AsyncSession, target_date: date, tz: ZoneInfo) -> int:
-    week_start = target_date - timedelta(days=target_date.weekday())
+    week_start = week_start_for(target_date)
     week_end = week_start + timedelta(days=7)
 
     stmt = select(Rep).where(
@@ -46,14 +58,14 @@ async def get_weekly_pr(session: AsyncSession, tz: ZoneInfo) -> int:
     # Group by week, compute totals
     week_totals = {}
     for rep in completed_reps:
-        week_start = rep.scheduled_date - timedelta(days=rep.scheduled_date.weekday())
+        week_start = week_start_for(rep.scheduled_date)
         week_totals[week_start] = week_totals.get(week_start, 0) + 1
 
     return max(week_totals.values()) if week_totals else 0
 
 
 async def get_first_rep_rate(session: AsyncSession, target_date: date, tz: ZoneInfo) -> float:
-    week_start = target_date - timedelta(days=target_date.weekday())
+    week_start = week_start_for(target_date)
 
     # Get all rep types marked as first-rep
     stmt = select(RepType).where(RepType.is_first_rep == True)
@@ -460,7 +472,7 @@ async def get_week_reps(session: AsyncSession, target_date: date, tz: ZoneInfo) 
     Returns dict with week_start date and list of days (Mon-Sun), each with goal groups and reps.
     """
     # Get week start (Monday)
-    week_start = target_date - timedelta(days=target_date.weekday())
+    week_start = week_start_for(target_date)
 
     days = []
     for day_offset in range(7):

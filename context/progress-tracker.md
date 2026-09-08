@@ -73,6 +73,12 @@ it before starting anything else.**
   longest first; the 46 at zero collapse behind a one-click summary line naming
   how many have never been completed. Sparklines for live chains only. All
   hardcoded hex in both components replaced with tokens.
+- **Unit 04 — One week, one timezone** (2026-09-07). One `week_start_for()`
+  helper in `services/summary.py`, imported by `debrief.py`, replacing five
+  separate week calculations of which one disagreed. Scheduler pinned to
+  `settings.tz` and startup now logs the resolved next fire time. Frontend
+  `Dashboard` and `ChainsList` parse ISO dates as local, fixing a header that
+  showed yesterday.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -89,8 +95,7 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 1. ~~**Guard rep deletion**~~ — shipped 2026-09-07.
 2. ~~**Fix chain computation**~~ — shipped 2026-09-07.
 3. ~~**Render chains on Today**~~ — shipped 2026-09-07.
-4. **One week, one timezone** — cannot be verified on the laptop; the bug only
-   appears in the container.
+4. ~~**One week, one timezone**~~ — shipped 2026-09-07.
 5. **End-of-day sweep** — automatic 23:59, plus the manual sweep's window fix.
 6. **Fix `first_rep_rate`** — blocked in part on an open question below.
 7. **Debrief inputs** — needs 2, 4 and 6 to be correct first.
@@ -286,6 +291,8 @@ in `architecture.md`.
 - Vite dev proxy targets `localhost:8001`; `backend/README.md` and the
   Dockerfile both say 8000.
 - No test suite, no typecheck in CI. Ruff is configured and unused.
+- APScheduler does not backfill a missed fire. If the app is restarting at
+  21:00 Sunday or 23:59, that run is skipped silently and nothing warns.
 - `npm run lint` reports 6 pre-existing errors (`react-hooks/immutability` in
   `RepScheduling.jsx` and others). The Definition of Done says lint must pass;
   until these are cleared the practical gate is "no new errors".
