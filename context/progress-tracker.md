@@ -100,15 +100,22 @@ Deferred for lack of a decision, not for lack of value: push notification,
 weekly-target chain rules, weekly PR scope, paused goals in the debrief,
 `?hard=true`, and whether to add tests. See the plan's **Not units yet**.
 
-## Urgent
+## Environments — read this before trusting local data
 
-- **The Google refresh token is dead.** It returns `invalid_grant`, so every
-  calendar call fails and is swallowed. The last rep to get a calendar event was
-  2026-06-04; the 136 reps created since have none. The gray/green/red calendar
-  mirror — half the product — has not worked since early June. Re-run
-  `backend/scripts/google_oauth.py` (the headless fix for it shipped in
-  `9946db6`) to mint a new refresh token, and set it in **both** `backend/.env`
-  and Railway. Until then Unit 10 cannot be verified against a working calendar.
+**Local and production are different databases, not a copy.** Local
+`daily_tracker` holds 176 reps dated 2023-06-19 to 2026-07-01. Production holds
+320 reps starting 2026-07. Local is a dev database with old history; production
+is the live system Chris uses daily.
+
+The local `backend/.env` also carried a stale, revoked Google refresh token
+until 2026-09-07, while production's was valid throughout. A local calendar test
+therefore says nothing about production. Both now hold the same working token
+(verified refreshing 2026-09-07).
+
+Production URL: `daily-tracker-production-5c0a.up.railway.app`. The Railway CLI
+is installed and authenticated; `railway link --project Daily-tracker` connects
+this directory, and `railway variables --service daily-tracker` reads config.
+Changing a Railway variable triggers an automatic redeploy.
 
 ## Open Questions
 
@@ -194,11 +201,13 @@ The agent must not answer these on its own.
 
 ## Model Corrections
 
-- Expected calendar sync to be working because the code path is intact and
-  `google_calendar_enabled` is true → the refresh token is invalid, so every
-  call fails, is logged at warning without the event id, and is dropped → now
-  assume "configured" never means "working" for a third-party integration;
-  check for evidence of successful writes, not just for credentials.
+- Expected the local database and `.env` to represent production → they are a
+  separate dev environment with different data and, until 2026-09-07, a revoked
+  Google token. A local `invalid_grant` and a local gap in calendar events led
+  to a wrong conclusion that production sync had been dead for three months;
+  production coverage was 152/172 in July and 35/35 in September → now assume
+  **nothing about production can be inferred from local**; query the deployed
+  API or Railway directly before making any claim about live behavior.
 
 - Expected the weekly-target carve-out in Unit 02 to need careful handling →
   every rep type in the database has `daily_floor = 1`, so the weekly-only
