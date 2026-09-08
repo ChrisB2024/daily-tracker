@@ -375,14 +375,21 @@ The agent must not answer these on its own.
 
 ## Known Debt
 
-- **Physical Exercise has duplicate rep types.** Two "push day", two "pull day"
-  and two "Legs day", all created 2026-07-02, and **both sets are still being
-  scheduled against** (the secondary push day was last used 2026-09-03). Only
-  the primary of each is flagged `is_first_rep` — flagging both would require
-  both duplicates be completed before noon on a day they were both scheduled,
-  which would read as a miss every time. Archiving the unused ones is a data
-  cleanup for Chris; archiving now genuinely retires a rep type.
+- **Physical Exercise runs paired rep types per weekday, not duplicates.** Two
+  "push day", two "pull day" and two "Legs day", all created 2026-07-02, split
+  across different days of the week — one leans Monday, the other Thursday.
+  Confirmed 2026-09-07: across 12, 11 and 6 distinct scheduled days, the two
+  variants of a pair have **never** landed on the same date. This was initially
+  recorded as a data problem; it is deliberate. Only the higher-volume variant
+  of push and pull carries `is_first_rep`, which is conservative rather than
+  necessary — since a pair never collides, flagging both would widen coverage
+  without any day requiring two reps before noon.
 
+  Consolidating to one push, one pull and one legs would also merge each pair's
+  chain, which is currently split across two rep types. Archiving the secondary
+  alone preserves its rep rows but drops them out of chains; carrying the
+  history over would mean repointing `rep_type_id` on existing reps, which
+  rewrites rep rows and needs explicit approval.
 - An event deleted by hand in Google Calendar leaves a stale
   `calendar_event_id`; one-way sync means the tracker cannot know. Reconciliation
   is a larger feature and is not planned.
