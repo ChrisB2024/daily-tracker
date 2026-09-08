@@ -65,9 +65,13 @@ async def get_weekly_pr(session: AsyncSession, tz: ZoneInfo) -> int:
     return max(week_totals.values()) if week_totals else 0
 
 
-def _walk_chain(dates_completed: set[date], today: date) -> int:
+def walk_chain(dates_completed: set[date], today: date) -> int:
     """
-    Chain length in calendar days.
+    Chain length in calendar days, as of `today`.
+
+    Public because the debrief walks the same chains at historical dates to
+    report how they moved during the week — the semantics must not be
+    duplicated.
 
     Rule decided 2026-09-07 (see context/specs/02-fix-chain-computation.md):
     one empty day is forgiven once per chain; a second gap, or any gap of two or
@@ -230,7 +234,15 @@ class ChainInfo:
         self.last_completed_date = last_completed_date
 
 
-async def get_chains(session: AsyncSession, tz: ZoneInfo) -> list[ChainInfo]:
+async def get_chains(
+    session: AsyncSession, tz: ZoneInfo, as_of: date | None = None
+) -> list[ChainInfo]:
+    """
+    Per-rep-type chains as of `as_of` (default today).
+
+    The date is a parameter so the debrief can ask what a chain was a week ago
+    and report the change, not just the current number.
+    """
     # Archived rep types are excluded: a domain that was deliberately paused
     # should not keep occupying the dashboard.
     stmt = select(RepType).where(RepType.status == RepTypeStatus.active)
@@ -238,7 +250,7 @@ async def get_chains(session: AsyncSession, tz: ZoneInfo) -> list[ChainInfo]:
     rep_types = result.scalars().all()
 
     chains = []
-    today = datetime.now(tz).date()
+    today = as_of or datetime.now(tz).date()
 
     for rep_type in rep_types:
         # Get all completed reps of this type
@@ -259,7 +271,7 @@ async def get_chains(session: AsyncSession, tz: ZoneInfo) -> list[ChainInfo]:
         # explicitly TBD and still an open question. No such rep type exists
         # today — every one has daily_floor = 1 — so they fall through to the
         # daily walk. Decide the weekly rule before creating one.
-        chain_length = _walk_chain(dates_completed, today)
+        chain_length = walk_chain(dates_completed, today)
 
         last_completed_date = max(dates_completed) if dates_completed else None
 

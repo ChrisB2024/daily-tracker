@@ -97,6 +97,13 @@ it before starting anything else.**
   the no-orphan-reps invariant. Verified it catches the Unit 06 regression by
   reverting `_walk_chain` and watching `/summary` fail. 36/36 local, 76/76
   against production.
+- **Unit 07 — Debrief inputs** (2026-09-07). `get_weekly_summary_data` now
+  returns per-rep-type chains with their change since last week, chains that
+  broke and on which day, week total against the all-time PR with a beat /
+  matched / below verdict, per-goal first-rep rates, and the most-completed and
+  most-avoided rep types — the last ranked by completed-against-expected, not
+  raw count. `get_chains` gained an `as_of` date; `_walk_chain` became public
+  `walk_chain` so the debrief walks identical semantics rather than a copy.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -116,7 +123,7 @@ The build plan is `context/specs/00-build-plan.md` — 13 units, approved
 4. ~~**One week, one timezone**~~ — shipped 2026-09-07.
 5. ~~**End-of-day sweep**~~ — shipped 2026-09-07.
 6. ~~**Fix `first_rep_rate`**~~ — shipped 2026-09-07.
-7. **Debrief inputs** — needs 2, 4 and 6 to be correct first.
+7. ~~**Debrief inputs**~~ — shipped 2026-09-07.
 8. **Debrief prompt and tone** — findings, not encouragement.
 9. **Kill the N+1s** — deliberately after the units that rewrite those queries.
 10. **Calendar sync integrity** · 11. **Persist `WeeklySummary`** ·
@@ -223,6 +230,11 @@ The agent must not answer these on its own.
   async clients. · Traded away: a thread per external call.
 
 ## Model Corrections
+
+- Expected the debrief payload to be JSON-serialisable → its `goals` dict was
+  keyed by UUID, so `json.dumps` raised; nothing had noticed because only
+  `.values()` is ever read → now assume a dict that is never serialised may not
+  be serialisable, and check before Unit 11 stores it as JSONB.
 
 - Expected `is_first_rep` to be in real use because readme.md calls first-rep
   -before-noon "the headline behavioral metric" and a non-negotiable → exactly 1
