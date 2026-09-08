@@ -1,6 +1,6 @@
 # Architecture
 
-Recovered from code on 2026-09-03. Every row in Stack, Ownership, Storage,
+Recovered from code on 2026-09-07. Every row in Stack, Ownership, Storage,
 Lifecycles and Trust Boundaries is observed fact. Invariants are Chris's
 declared rules (from `readme.md`'s Non-Negotiables, plus technical rules the
 code consistently follows); each one that the code currently breaks is listed in
@@ -173,7 +173,7 @@ Non-Negotiables from `readme.md`, restated as checkable rules.
    log line, never in a response body, never in the client bundle. `backend/.env`
    stays gitignored.
 2. **The API is deliberately unauthenticated and single-user — an accepted
-   risk, not an oversight.** Chris confirmed this on 2026-09-03: the URL is the
+   risk, not an oversight.** Chris confirmed this on 2026-09-07: the URL is the
    only secret. The binding consequence: **the database may hold only rep
    metadata.** No credentials, no third-party tokens, no sensitive personal
    content in `notes`. Do not add authentication without being asked, and do not
@@ -209,10 +209,9 @@ what it costs the product.
 | --------- | ----------- | ------------------------ |
 | Product 4 — chains are shown | `frontend/src/components/Dashboard.jsx` never imports `ChainsList.jsx` or `ChainsVisualization.jsx` | **Bug.** `/summary` computes chains and a 60-day history per chain, serializes them, and the dashboard drops them. The psychological core of the product is invisible. |
 | Product 4 — chain math | `backend/app/services/summary.py:130-134` | **Bug.** The walk starts at `today`, so a chain alive through yesterday reads 0 until today's rep is done — every chain reads 0 every morning. Also ignores `daily_floor` and `weekly_target` (readme specifies weekly-only rep types chain per week), and `if not completed_reps: continue` hides any rep type with zero completions. |
-| Product 3 — missed reps stay visible | `backend/app/routers/reps.py:151` (`delete_rep`) and the ✕ button on every row in `frontend/src/components/RepItem.jsx:20-26` | **Bug.** Hard-deletes any rep in any status, including missed, and it is one click away in Today and Week. Needs either a `pending`-only guard or removal. |
 | Product 6 — findings, not encouragement | `backend/app/services/debrief.py:100` | **Bug.** The prompt asks Claude for a "personal coach… encouraging… motivating" summary. The readme forbids exactly this, and "the debrief feels generic" is a stated V1-failure condition. |
 | Product 6 — debrief content | `backend/app/services/debrief.py:18-79` | **Bug.** Aggregates only completed/missed/pending per goal plus a completion rate. No chains, no PR comparison, no first-rep rate, no most-avoided rep type. The spec's step 2–4 are absent. |
-| Technical 4 — `settings.tz` everywhere | `backend/app/scheduler.py` — `AsyncIOScheduler()` built with no timezone, and `date.today()` at line 33 | **Bug, two of them, and it only manifests in production.** APScheduler with no `timezone=` resolves the *host* timezone via `tzlocal`. Verified 2026-09-03: that returns `America/New_York` on Chris's Mac, so local dev looks correct — but `python:3.11-slim` sets no `TZ`, so on Railway the "Sunday 21:00" cron fires at 21:00 UTC (≈16:00/17:00 ET). `date.today()` is wrong the same way. Fix is `AsyncIOScheduler(timezone=settings.tz)` plus `datetime.now(tz=settings.tz).date()`. |
+| Technical 4 — `settings.tz` everywhere | `backend/app/scheduler.py` — `AsyncIOScheduler()` built with no timezone, and `date.today()` at line 33 | **Bug, two of them, and it only manifests in production.** APScheduler with no `timezone=` resolves the *host* timezone via `tzlocal`. Verified 2026-09-07: that returns `America/New_York` on Chris's Mac, so local dev looks correct — but `python:3.11-slim` sets no `TZ`, so on Railway the "Sunday 21:00" cron fires at 21:00 UTC (≈16:00/17:00 ET). `date.today()` is wrong the same way. Fix is `AsyncIOScheduler(timezone=settings.tz)` plus `datetime.now(tz=settings.tz).date()`. |
 | Technical 4 — week boundary | `backend/app/services/summary.py` uses Monday-start; `backend/app/services/debrief.py:26` uses `weekday() + 1` (Sunday-start) | **Bug.** Two different weeks in one system. The Sunday debrief covers the *previous* Sun–Sat and excludes the day it runs. Readme declares Mon–Sun; `summary.py` is correct. |
 | Product 7 — no automatic end-of-day sweep | `backend/app/scheduler.py` has only the Sunday job | **Bug.** Red-on-miss only happens if Chris presses a button, so the core pressure mechanism depends on him remembering. |
 | Technical 4 / correctness — sweep window | `backend/app/routers/reps.py:196` filters `scheduled_date <= today_date` | **Bug.** Pressing the sweep at 09:00 marks today's still-pending reps missed. Should be `< today` for a manual sweep, or `== today` for a 23:59 job. |
@@ -221,6 +220,7 @@ what it costs the product.
 | Product 6 / metric honesty | `get_first_rep_rate` in `summary.py:56-90` | **Bug.** Filters `scheduled_time < noon` instead of `completed_at < noon`, so it measures scheduling intent, not behavior. Always divides by 7, so Monday caps at 14%. Requires *all* first-rep types across *all* goals, including paused and archived ones, and returns `0.0` when none exist. |
 | Security 4 / product honesty | `get_30day_rhythm` in `summary.py:277`, surfaced as `rhythm_30day` | **Bug (naming).** Returns the current calendar month, not 30 days. The name and the API field both misdescribe the data. |
 | Technical 5 — calendar failures degrade | `create_event` returns `None` on failure (`google_calendar.py:110`), and callers assign it to `rep.calendar_event_id` without checking | **Bug.** The invariant holds — nothing raises — but the rep is then permanently unsynced with no record and no retry. "Calendar sync fails silently" is a stated V1-failure condition. |
+| Product 7 — the user can tell what the system is doing | `frontend/src/components/Dashboard.jsx:68` | **Bug, found 2026-09-07 while verifying Unit 01.** `new Date("2026-07-01")` parses as UTC midnight and renders in local time, so the dashboard header shows *yesterday's* date every day. `WeekView.jsx`, `History.jsx` and `Debrief.jsx` already carry a `parseISODate` helper that does this correctly — `Dashboard.jsx` is the only view not using it. |
 | Product 5 — calendar is a mirror | `update_rep` in `reps.py:126-141` | **Bug.** Changing `scheduled_date`/`scheduled_time` never patches the event, so the mirror silently stops reflecting the tracker. |
 | Efficiency (no invariant, but load-bearing) | 13 `session.refresh(...)` calls inside loops; zero `selectinload`/`joinedload` in the repo; `get_summary` runs a chain query *plus* a 60-day history query per rep type; counts use `len(result.scalars().all())` instead of `select(func.count())` | **Bug.** `backend/README.md` itself says to use `selectinload` "to avoid lazy-load explosions". `/summary` is O(rep types × queries) on every dashboard load. |
 | Efficiency — OAuth | `GoogleCalendarClient._build_service` refreshes credentials on every single operation, and `create_reps_bulk` constructs a fresh client per rep | **Bug.** Bulk-scheduling 14 reps performs 14 serial token refreshes and 14 service builds. |

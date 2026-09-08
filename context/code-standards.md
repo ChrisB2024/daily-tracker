@@ -1,6 +1,6 @@
 # Code Standards
 
-The conventions actually in force, recovered from the code on 2026-09-03. Where
+The conventions actually in force, recovered from the code on 2026-09-07. Where
 two patterns compete, the chosen one is stated and the other is logged as
 cleanup in `progress-tracker.md`.
 

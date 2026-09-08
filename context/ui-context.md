@@ -1,7 +1,7 @@
 # UI Context
 
 Recovered from `frontend/src/styles/dashboard.css` and the components on
-2026-09-03. This documents the design that exists. Where components bypass the
+2026-09-07. This documents the design that exists. Where components bypass the
 token system, that is recorded as a divergence, not promoted to a standard.
 
 ## Design Intent

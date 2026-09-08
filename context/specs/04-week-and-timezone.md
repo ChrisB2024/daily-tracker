@@ -44,7 +44,7 @@ Two changes:
 2. `today = date.today()` → `today = datetime.now(tz=settings.tz).date()`.
 
 **Why this is invisible locally.** APScheduler with no `timezone=` resolves the
-host zone through `tzlocal`. Verified 2026-09-03: that returns
+host zone through `tzlocal`. Verified 2026-09-07: that returns
 `America/New_York` on Chris's Mac and UTC inside `python:3.11-slim`. So the cron
 is correct in dev and fires five hours early on Railway. The same applies to
 `date.today()`.

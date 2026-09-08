@@ -3,14 +3,14 @@
 Update after every meaningful change. This file is how a cold session recovers
 full context in one read.
 
-Reconstructed on 2026-09-03 from the code, `readme.md`'s build order, and git
+Reconstructed on 2026-09-07 from the code, `readme.md`'s build order, and git
 history. Nothing here was verified against a running instance — the state of
 the live Railway deploy is recorded as Chris reported it.
 
 ## Phase
 
 **Shipped and in daily use.** All five slices from `readme.md`'s build order
-have landed in some form. Chris confirmed on 2026-09-03 that the Railway
+have landed in some form. Chris confirmed on 2026-09-07 that the Railway
 backend and hosted frontend are up and he uses it every day.
 
 The work now is not "finish V1" — it is closing the gap between what the system
@@ -55,6 +55,9 @@ it before starting anything else.**
   Plus three views beyond the original scope: Analytics (per-rep-type completion
   rates), WeekView (Mon–Sun with inline complete and delete), and goal
   progression charts.
+- **Unit 01 — Guard rep deletion** (2026-09-07). `DELETE /reps/{id}` returns 409
+  for completed and missed reps; the ✕ renders only on pending rows. Product
+  invariant 3 now holds for every path reachable from the UI.
 - **Deploy.** Dockerfile running `alembic upgrade head || true` then uvicorn on
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
@@ -66,11 +69,9 @@ Nothing.
 ## Next
 
 The build plan is `context/specs/00-build-plan.md` — 13 units, approved
-2026-09-03. Start with **Unit 01**. In short:
+2026-09-07. Start with **Unit 01**. In short:
 
-1. **Guard rep deletion** — trust infrastructure, and one click currently
-   destroys the evidence trail. Moved to the front from #6 in the earlier
-   sketch: the rep history *is* this system's integrity claim.
+1. ~~**Guard rep deletion**~~ — shipped 2026-09-07.
 2. **Fix chain computation** — before rendering, so a live chain never
    displays as broken.
 3. **Render chains on Today** — the components are already written and the data
@@ -140,7 +141,7 @@ The agent must not answer these on its own.
 - **The API has no authentication, deliberately.** — Single user, single
   machine, obscure URL. · Traded away: anyone with the URL can read and write
   every goal and rep. The binding consequence is that the database may only ever
-  hold rep metadata (see `architecture.md` S2). Confirmed 2026-09-03. Do not add
+  hold rep metadata (see `architecture.md` S2). Confirmed 2026-09-07. Do not add
   auth unasked.
 - **Metrics computed at read time, never stored.** — Chains and PRs are derived
   facts; storing them creates a second source of truth that can drift from
@@ -170,6 +171,15 @@ The agent must not answer these on its own.
 
 ## Model Corrections
 
+- Expected the local Postgres to be the live data → its reps stop at 2026-07-01
+  while today is 2026-09-07, so the local database is a ~2-month-old snapshot
+  and the live data is Railway's → now assume local verification runs against
+  stale data, which is fine for logic but never for "is this what Chris sees".
+- Expected `npm run lint` to pass, since the Definition of Done requires it →
+  it reports 6 pre-existing errors on the committed tree, none in files touched
+  by Unit 01 → now assume the lint gate means "introduces no new errors" until
+  the existing 6 are cleared.
+
 - Expected `/summary` to feed a dashboard that renders it → `chains` and their
   60-day histories are computed, serialized, and dropped on the floor;
   `ChainsList.jsx` and `ChainsVisualization.jsx` are imported by nothing → now
@@ -183,7 +193,7 @@ The agent must not answer these on its own.
   until proven shared.
 - Expected `settings.tz` to govern the scheduler because it governs everything
   else → `AsyncIOScheduler()` takes no timezone, so it resolves the *host* zone
-  via `tzlocal`, and the job calls `date.today()`. Verified 2026-09-03: that
+  via `tzlocal`, and the job calls `date.today()`. Verified 2026-09-07: that
   returns `America/New_York` on the Mac and UTC in `python:3.11-slim`, so
   "Sunday 21:00" is correct in local dev and 21:00 UTC on Railway → now assume
   any timezone bug outside a request handler is invisible locally and must be
@@ -219,6 +229,10 @@ in `architecture.md`.
 - Vite dev proxy targets `localhost:8001`; `backend/README.md` and the
   Dockerfile both say 8000.
 - No test suite, no typecheck in CI. Ruff is configured and unused.
+- `npm run lint` reports 6 pre-existing errors (`react-hooks/immutability` in
+  `RepScheduling.jsx` and others). The Definition of Done says lint must pass;
+  until these are cleared the practical gate is "no new errors".
+- The local Postgres is a snapshot ending 2026-07-01. Live data is on Railway.
 - `create_goal` enforces title uniqueness in Python with no DB constraint, so
   it is racy — harmless at one user.
 

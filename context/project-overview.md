@@ -1,6 +1,6 @@
 # Daily Tracker
 
-Recovered from the codebase and `readme.md` on 2026-09-03. Scope and status
+Recovered from the codebase and `readme.md` on 2026-09-07. Scope and status
 confirmed by Chris; everything else is observed from code.
 
 ## The Problem
@@ -88,7 +88,7 @@ stops opening it.
 ## Boundaries
 
 ### Building now
-- Everything under Capabilities above. Chris confirmed on 2026-09-03 that the
+- Everything under Capabilities above. Chris confirmed on 2026-09-07 that the
   code is the authority on scope and `readme.md`'s out-of-scope list is stale:
   Analytics, WeekView, goal-progression charts and the month heatmap are real
   capabilities, not experiments.
@@ -118,7 +118,7 @@ stops opening it.
 
 ## Done Looks Like
 
-V1 is shipped and in daily use as of 2026-09-03. These are the conditions that
+V1 is shipped and in daily use as of 2026-09-07. These are the conditions that
 still have to hold, stated so they can be checked rather than felt:
 
 1. Creating a rep produces a gray Google Calendar event within one request, and

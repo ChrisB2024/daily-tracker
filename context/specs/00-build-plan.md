@@ -1,6 +1,6 @@
 # Build Plan
 
-Approved 2026-09-03. Units in build order, each producing one visible result.
+Approved 2026-09-07. Units in build order, each producing one visible result.
 
 This is not a greenfield plan — the system is deployed and in daily use. Every
 unit below closes a gap between what the system promises and what it does. The
@@ -97,7 +97,7 @@ request handlers. `debrief.py:26` uses a Sunday-start week while
 Sun–Sat and excludes the day it runs. `AsyncIOScheduler()` gets no timezone and
 the job calls `date.today()`.
 
-*Verified 2026-09-03:* APScheduler resolves the host zone via `tzlocal`, which
+*Verified 2026-09-07:* APScheduler resolves the host zone via `tzlocal`, which
 returns `America/New_York` on the Mac and UTC in `python:3.11-slim` — so the
 cron is correct in local dev and fires at 21:00 UTC on Railway. **This unit
 cannot be verified on the laptop alone.**

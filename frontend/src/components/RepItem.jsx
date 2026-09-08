@@ -17,13 +17,15 @@ export default function RepItem({ rep, onComplete, onDelete }) {
       </button>
       <span className="title">[{rep.rep_type_name}]</span>
       <span className="time">{rep.scheduled_time}</span>
-      <button
-        className="rep-delete-button"
-        onClick={onDelete}
-        title="Delete rep"
-      >
-        ✕
-      </button>
+      {isPending && (
+        <button
+          className="rep-delete-button"
+          onClick={onDelete}
+          title="Delete rep"
+        >
+          ✕
+        </button>
+      )}
     </li>
   );
 }

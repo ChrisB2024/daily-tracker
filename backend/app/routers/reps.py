@@ -149,6 +149,14 @@ async def delete_rep(rep_id: UUID, session: AsyncSession = Depends(get_session))
     if rep is None:
         raise HTTPException(status_code=404, detail="Rep not found")
 
+    # Only pending reps may be deleted. A completed or missed rep is the evidence
+    # trail the tracker exists to keep — see architecture.md, product invariant 3.
+    if rep.status != RepStatus.pending:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot delete a {rep.status.value} rep",
+        )
+
     # Delete from Google Calendar if synced
     if settings.google_calendar_enabled and rep.calendar_event_id:
         client = GoogleCalendarClient(
