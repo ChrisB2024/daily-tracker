@@ -167,7 +167,7 @@ returns 409 even if the 00:00 job has not run yet. Reasons are stripped and
 limited to 200 characters. The database is written first and Google second, so
 a check-off survives an unreachable calendar.
 
-### Unit 17 — The daily list
+### Unit 17 — The daily list — shipped 2026-09-24
 
 **Builds:** Today becomes the day's tasks grouped by goal, each with a checkbox,
 plus a sync button, the last-synced time, and the "removed today — why?" list
@@ -175,6 +175,15 @@ with one reason input per cancelled task. Required empty, loading and error
 states. Nothing else on Today changes in this unit.
 **Done when:** Chris opens Today, sees what is on his calendar today, and
 checking one turns it green in Google.
+
+*As built:* `TodayTasks` sits at the top of Today, above everything that was
+already there; the rep sections stay until Unit 20. The backend does not
+record when the 15-minute job last ran, so the section **syncs once when it
+opens** and shows that time — the button syncs again. A failed sync still
+shows the saved tasks, with a muted note. Prefixes that matched no goal are
+named in a note so a typo on the calendar is visible. Removed tasks without a
+reason show a one-line input whose placeholder says anyone with the link can
+read it.
 
 ### Unit 18 — Day graph
 

@@ -86,6 +86,9 @@ stops opening it.
 - A pending task follows its event when it moves; it is cancelled when the
   event is deleted. Finished tasks never change.
 - A goal with tasks cannot be hard-deleted (409); archive it instead.
+- Today opens with the day's tasks grouped by goal, syncing once on open, with
+  a Sync button, the last-synced time, a note naming any `[Tag]` that matched
+  no goal, and a "Removed today — why?" list.
 - Check a task off until midnight (`POST /tasks/{id}/complete`); its event
   turns green. At 00:00 the previous day's unchecked tasks become missed and
   turn red.

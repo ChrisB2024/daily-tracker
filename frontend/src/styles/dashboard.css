@@ -255,13 +255,15 @@ h3 {
   border-bottom: 1px solid var(--border);
 }
 
-.reps {
+.reps,
+.tasks {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.rep {
+.rep,
+.task {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -270,36 +272,43 @@ h3 {
   transition: background 0.2s;
 }
 
-.rep:last-child {
+.rep:last-child,
+.task:last-child {
   border-bottom: none;
 }
 
-.rep:hover {
+.rep:hover,
+.task:hover {
   background: rgba(74, 222, 128, 0.05);
 }
 
-.rep .title {
+.rep .title,
+.task .title {
   flex: 1;
   font-weight: 500;
   font-size: 0.95rem;
 }
 
-.rep .time {
+.rep .time,
+.task .time {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
 }
 
-.rep.status-completed .title {
+.rep.status-completed .title,
+.task.status-completed .title {
   text-decoration: line-through;
   color: var(--completed);
 }
 
-.rep.status-missed .title {
+.rep.status-missed .title,
+.task.status-missed .title {
   color: var(--missed);
 }
 
-.rep-button {
+.rep-button,
+.task-button {
   background: transparent;
   border: 1.5px solid var(--border);
   color: var(--fg);
@@ -316,24 +325,28 @@ h3 {
   font-weight: 600;
 }
 
-.rep-button:hover:not(:disabled) {
+.rep-button:hover:not(:disabled),
+.task-button:hover:not(:disabled) {
   border-color: var(--completed);
   background: rgba(74, 222, 128, 0.1);
   box-shadow: 0 0 12px rgba(74, 222, 128, 0.2);
 }
 
-.rep-button:disabled {
+.rep-button:disabled,
+.task-button:disabled {
   cursor: default;
   opacity: 0.5;
 }
 
-.rep.status-completed .rep-button {
+.rep.status-completed .rep-button,
+.task.status-completed .task-button {
   border-color: var(--completed);
   color: var(--completed);
   background: rgba(74, 222, 128, 0.1);
 }
 
-.rep.status-missed .rep-button {
+.rep.status-missed .rep-button,
+.task.status-missed .task-button {
   border-color: var(--missed);
   color: var(--missed);
   background: rgba(239, 68, 68, 0.05);
@@ -1626,4 +1639,100 @@ h3 {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0.75rem 0 0.25rem 0;
+}
+
+/* Today's tasks (calendar-first redesign). Rows share the .rep rules above. */
+
+.tasks-section {
+  margin-bottom: 2rem;
+}
+
+.tasks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.tasks-sync {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tasks-synced-at {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.tasks-sync-button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 6px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.tasks-sync-button:hover:not(:disabled) {
+  border-color: var(--completed);
+}
+
+.tasks-sync-button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+/* A sync problem is the system failing, not Chris missing work — muted, never
+   --missed. Same reasoning as .rep-unsynced. */
+.tasks-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: -0.75rem 0 1.25rem;
+}
+
+.removed-tasks .task {
+  flex-wrap: wrap;
+}
+
+.removed-goal,
+.removed-reason {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.removed-form {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1 1 16rem;
+}
+
+.removed-form input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.removed-form button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.removed-form button:disabled {
+  color: var(--muted);
+  cursor: default;
 }

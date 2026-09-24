@@ -21,13 +21,12 @@ until Unit 20 retires its UI. Its data is kept forever.
 
 ## Working On
 
-Nothing in flight. **Units 14–16 shipped** on the redesign branch; next is
-Unit 17 (Today becomes the daily task checklist) — the first frontend unit.
-
-**Do not merge the redesign branch to `main` before Unit 17.** Both halves
-auto-deploy from `main`, and the 15-minute sync job would start filling
-`tasks` in production with nothing to show them, check them off or sweep them.
-Merging 14–17 together is the first point where the flow works end to end.
+Nothing in flight. **Units 14–17 shipped** on the redesign branch — the
+calendar-first flow works end to end on the branch. **Waiting on Chris to
+decide on merging to `main`**, which deploys it (Railway and Vercel both
+auto-deploy). Before merging: run it once locally against real Google (see
+Unit 15's note) — nothing in this redesign has touched a real calendar yet.
+The migration is additive and the first deploy runs it automatically.
 
 ## Shipped
 
@@ -188,6 +187,15 @@ Merging 14–17 together is the first point where the flow works end to end.
   function: completed stays completed, yesterday's pending became missed,
   cancelled untouched; `smoke.py` 17/17. Not verified against real Google.
 
+- **Unit 17 — The daily list** (2026-09-24, redesign branch). `TodayTasks` and
+  `TaskItem` at the top of Today; four `api.js` functions; `/tasks` added to
+  the Vite dev proxy (without it, local dev 404s every task call). Syncs once on
+  open because the backend does not record the job's last run. Verified in
+  Chromium through the Vite dev server against a seeded Postgres: grouping by
+  goal, all-day first, check-off turns the row green (computed colour checked),
+  a reason saves and replaces its input, the not-connected note shows. Lint:
+  no new errors (still the 6 pre-existing). Build passes.
+
 ## In Progress
 
 Nothing.
@@ -199,7 +207,7 @@ Nothing.
 14. ~~`tasks` table (schema only)~~ — shipped 2026-09-24
 15. ~~Pull tasks from Google Calendar~~ — shipped 2026-09-24
 16. ~~Check off, 00:00 sweep, removal reasons~~ — shipped 2026-09-24
-17. Today becomes the daily task checklist
+17. ~~Today becomes the daily task checklist~~ — shipped 2026-09-24
 18. Day graph — 3D points-and-lines, Lobe Atlas look
 19. Week graph + goal ranking by time spent
 20. Retire Schedule, rep types, chains and the debrief; rep history stays read-only
@@ -323,6 +331,10 @@ Decisions. None open.
   Renaming a goal in the tracker would otherwise cancel every pending task
   tagged with its old name. · Traded away: un-tagging an event is not a way to
   withdraw a task; delete the event instead.
+- **Today syncs once when it opens** (2026-09-24, Unit 17, agent's call) —
+  the spec asked for a last-synced time, and the backend does not record
+  when the 15-minute job ran; syncing on open makes the time real and the
+  list current. · Traded away: one Google call per Today load.
 - **Poll the calendar, don't subscribe to push** (2026-09-24, proposed) — a
   15-minute job plus a sync button. Google watch channels need a public
   webhook, renewals and a verified domain; polling is one function Chris can
@@ -478,6 +490,12 @@ Decisions. None open.
 
 ## Known Debt
 
+- **Today scrolls sideways on a phone** (found 2026-09-24 in Unit 17,
+  pre-existing). At 420px the page is 691px wide: the seven-button nav row and
+  `.dashboard-main` overflow. Verified identical with Unit 17's changes
+  stashed, so not caused by it. Unit 20 drops three nav buttons, which may
+  mostly fix it; check then.
+
 - **Physical Exercise runs paired rep types per weekday, not duplicates.** Two
   "push day", two "pull day" and two "Legs day", all created 2026-07-02, split
   across different days of the week — one leans Monday, the other Thursday.
@@ -531,7 +549,8 @@ in `architecture.md`.
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
 first — it supersedes the notes below on direction. Units 14–16 are shipped on
-the branch (not `main` — see Working On). Next action: Unit 17.
+the branch (not `main` — see Working On). Next action: Chris's call on
+merging to `main`, then Unit 18 (day graph).
 
 **Local test setup in a cloud container:** `conftest.py` connects as role
 `chrisilias` with no password. There, start Postgres, create that role with a

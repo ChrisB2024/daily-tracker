@@ -94,6 +94,11 @@ view shows `Loading…` for the duration. Outcomes are announced with `alert()`.
 | Success | Silent for completions. `alert()` for the end-of-day sweep. |
 | Failure | `alert("Failed: " + message)` — 19 `alert()` calls across the components. |
 
+`TodayTasks` follows the same convention with one refinement: after a
+check-off only the task list refetches, not the whole summary. Its sync
+failure is a muted `.tasks-note`, never `.error` or `--missed` — the list is
+still usable from saved data.
+
 This is the observed convention, and it is honest but crude: completing a rep
 that also patches a Google Calendar event can take a second or more with no
 feedback on the button pressed. Improving it is a real unit; until then, match
@@ -130,10 +135,15 @@ them into `Dashboard` is the intended next change, not a rewrite.
   of seven views. `Dashboard.jsx` is the only stateful container; view selection
   is `useState`, not a router, so there are no deep links and the browser back
   button does not move between views.
-- **Today** — `.dashboard-grid` with `.dashboard-main` (date, `StatsHeader`,
-  `FirstRepStrip`, `RhythmChart`, `TodayReps`), a conditional
+- **Today** — `.dashboard-grid` with `.dashboard-main` (date, `TodayTasks`,
+  `StatsHeader`, `FirstRepStrip`, `ChainsList`, `RhythmChart`, `TodayReps`), a conditional
   `.dashboard-sidebar` for goal progressions, and `.dashboard-footer` holding
   the end-of-day sweep button.
+- **Task row** — `TaskItem` (since Unit 17): the same `○` / `✓` / `✗` status
+  button as a rep row, the task title, then `9:00 AM–10:30 AM · 1h30` or
+  `All day · 24h`. Its CSS is shared with `.rep` through combined selectors,
+  not copied. No delete button: tasks are removed by deleting the calendar
+  event.
 - **Nav** — a flat row of seven `.nav-button`s; the active one gets `.active`.
 - **Rep row** — `RepItem`: a status button (`○` / `✓` / `✗`, disabled unless
   pending), `[RepType]` in brackets, the time, then a delete `✕`. The bracket
