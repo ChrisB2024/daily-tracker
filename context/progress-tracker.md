@@ -21,12 +21,14 @@ until Unit 20 retires its UI. Its data is kept forever.
 
 ## Working On
 
-Nothing in flight. **Units 14–17 shipped** on the redesign branch — the
-calendar-first flow works end to end on the branch. **Waiting on Chris to
-decide on merging to `main`**, which deploys it (Railway and Vercel both
-auto-deploy). Before merging: run it once locally against real Google (see
-Unit 15's note) — nothing in this redesign has touched a real calendar yet.
-The migration is additive and the first deploy runs it automatically.
+Nothing in flight. **Units 14–17 merged to `main` on 2026-09-24** at
+Chris's instruction, so the calendar-first flow is live (Railway runs
+revision `8fcad7e710dc` on deploy; Vercel ships the new Today). It was merged
+**without a local test against real Google** — the first real sync happens in
+production. Check first: the Railway log should show `Scheduled task_sync`
+and `Scheduled task_sweep`, and a `[Goal] test` event should appear on Today
+after pressing Sync. If Google calls fail, the tasks list still loads from
+saved data and nothing is cancelled.
 
 ## Shipped
 
@@ -549,8 +551,8 @@ in `architecture.md`.
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
 first — it supersedes the notes below on direction. Units 14–16 are shipped on
-the branch (not `main` — see Working On). Next action: Chris's call on
-merging to `main`, then Unit 18 (day graph).
+`main` (see Working On). Next action: confirm the first production sync,
+then Unit 18 (day graph).
 
 **Local test setup in a cloud container:** `conftest.py` connects as role
 `chrisilias` with no password. There, start Postgres, create that role with a
