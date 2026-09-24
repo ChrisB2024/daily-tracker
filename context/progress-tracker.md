@@ -23,12 +23,10 @@ until Unit 20 retires its UI. Its data is kept forever.
 
 Nothing in flight. **Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
-revision `8fcad7e710dc` on deploy; Vercel ships the new Today). It was merged
-**without a local test against real Google** — the first real sync happens in
-production. Check first: the Railway log should show `Scheduled task_sync`
-and `Scheduled task_sweep`, and a `[Goal] test` event should appear on Today
-after pressing Sync. If Google calls fail, the tasks list still loads from
-saved data and nothing is cancelled.
+revision `8fcad7e710dc` on deploy; Vercel ships the new Today). **Confirmed
+working in production by Chris on 2026-09-24**: `GET /tasks` answered `[]`
+after the deploy, and after a refresh Today synced and showed tasks from his
+real calendar. This was the redesign's first contact with real Google.
 
 ## Shipped
 
@@ -419,6 +417,13 @@ Decisions. None open.
 
 ## Model Corrections
 
+- Expected a merge to `main` to switch the app over in one step → Vercel
+  finished the frontend minutes before Railway had built the image and run
+  the migration, so the new Today called `/tasks` on the old backend and
+  showed "Failed to fetch tasks" until a refresh → now assume the frontend is
+  live first after any merge that adds an endpoint, and tell Chris to refresh
+  once Railway's deploy completes (check `GET /<new endpoint>` directly).
+
 - Expected the debrief payload to be JSON-serialisable → its `goals` dict was
   keyed by UUID, so `json.dumps` raised; nothing had noticed because only
   `.values()` is ever read → now assume a dict that is never serialised may not
@@ -551,8 +556,7 @@ in `architecture.md`.
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
 first — it supersedes the notes below on direction. Units 14–16 are shipped on
-`main` (see Working On). Next action: confirm the first production sync,
-then Unit 18 (day graph).
+`main` and confirmed live (see Working On). Next action: Unit 18 (day graph).
 
 **Local test setup in a cloud container:** `conftest.py` connects as role
 `chrisilias` with no password. There, start Postgres, create that role with a
