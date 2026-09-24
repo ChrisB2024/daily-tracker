@@ -35,7 +35,7 @@ graph draws shared-day links fainter than task links, and thicker with weight.
 2 · a goal with only missed tasks that day is not linked · the day graph has no
 goal→goal links · hovering a link says "worked the same day on N days".
 
-### Unit 22 — Installable web app
+### Unit 22 — Installable web app — shipped 2026-09-24
 
 **Builds:** `manifest.webmanifest`, icons (192, 512, and a 180px
 `apple-touch-icon`), the iOS meta tags, and a service worker registered from
@@ -43,6 +43,13 @@ goal→goal links · hovering a link says "worked the same day on N days".
 caching, so a deploy is never masked by a stale cache.
 **Done when:** Safari on iPhone offers "Add to Home Screen", the icon appears,
 and the app opens full-screen from it.
+
+*As built:* icon generated from an SVG of three glowing goal clusters in the
+`--goal-*` palette (Playwright-rendered to 512, 192 and 180px). Status bar
+style is plain `black`, not `black-translucent`, so nothing slides under the
+notch. Verified in Chromium: the worker registers at scope `/`, the manifest
+parses as standalone, every icon serves. **The Home Screen install itself
+needs Chris's iPhone.**
 
 ### Unit 23 — Push plumbing
 

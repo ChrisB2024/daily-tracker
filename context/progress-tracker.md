@@ -34,7 +34,7 @@ instruction. **Build Plan 2 is complete.**
 
 **Build Plan 3** (`context/specs/15-goal-links-and-push.md`, Units 21–24):
 goal links in the week graph, then push notifications to Chris's iPhone.
-Unit 21 is shipped on the branch; Units 22–24 next.
+Units 21–22 are shipped on the branch; Units 23–24 next.
 
 **Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
@@ -246,6 +246,12 @@ real calendar. This was the redesign's first contact with real Google.
   long and loose so clusters stay apart; hover names the days. 1 new test,
   83/83; seeded week gave exactly the expected pairs; rendered in Chromium
   with no errors.
+
+- **Unit 22 — Installable web app** (2026-09-24, branch). Manifest, 192/512
+  icons and a 180px `apple-touch-icon`, iOS meta tags, and a service worker
+  with no caching and no fetch handler (a deploy can never be masked by a
+  stale cache). Verified in Chromium: worker active at `/`, manifest standalone,
+  icons 200. Not yet installed on the iPhone.
 
 ## In Progress
 
