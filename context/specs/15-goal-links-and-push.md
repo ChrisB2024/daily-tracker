@@ -83,7 +83,7 @@ VAPID keys, a Python-generated device key pair and a local stand-in push
 service — the payload decrypted to the expected JSON and the VAPID JWT
 verified against the public key. The iPhone delivery itself is Chris's check.
 
-### Unit 24 — The three notifications
+### Unit 24 — The three notifications — shipped 2026-09-24
 
 **Builds:** three scheduler jobs in `settings.tz` using `services/push.py`:
 evening reminder, morning summary, weekly recap, with the defaults above.
@@ -93,6 +93,15 @@ VAPID is configured.
 **Done when:** each job, run by hand against seeded data, sends the expected
 text · the evening reminder sends nothing when every task is done · startup
 logs the next fire time of each.
+
+*As built:* `services/notifications.py` holds the pure builders and the three
+senders; `scheduler.NOTIFICATION_JOBS` is the one table of ids and times.
+Wording: morning "Today: 3 tasks · 3h" / "Hitwin 2 · Angle 1" (or "Nothing
+planned today"); evening "4 tasks still unchecked" / "ship onboarding, review
+PRs, changelog and 1 more. Tick them before midnight."; Sunday "Week of Sep
+21: 6h15 done" / "1. AI 3h15 · 2. Hitwin 3h". The recap opens
+`/?view=week-graph`, which Dashboard reads once on load. Jobs register only
+when push is configured.
 
 ## Open questions
 

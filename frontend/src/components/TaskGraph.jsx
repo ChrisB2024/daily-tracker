@@ -110,8 +110,8 @@ function makeHalo(color, radius, strength) {
   return halo;
 }
 
-export default function TaskGraph({ initialDate, onBack }) {
-  const [mode, setMode] = useState("day"); // "day" | "week"
+export default function TaskGraph({ initialDate, initialMode = "day", onBack }) {
+  const [mode, setMode] = useState(initialMode); // "day" | "week"
   const [date, setDate] = useState(initialDate); // the day shown, or a day in the week shown
   const [result, setResult] = useState({ key: null, data: null, error: null });
   const containerRef = useRef(null);

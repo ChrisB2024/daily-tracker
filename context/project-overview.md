@@ -59,7 +59,8 @@ Since the calendar-first redesign (Units 14–20, 2026-09-24):
 4. At the end of the day, tick what you did. The task goes `completed` and its calendar event turns green (`colorId: 10`).
 5. At 00:00 the previous day's unticked tasks become `missed` and turn red (`colorId: 11`).
 6. A task whose event was deleted shows under "Removed today — why?" and takes a one-line reason until midnight.
-7. Click the date on Today for the **graph**: goals as clusters, tasks as points. Switch to **Week** for Monday–Sunday and the goal ranking by time completed.
+7. Click the date on Today for the **graph**: goals as clusters, tasks as points. Switch to **Week** for Monday–Sunday, the goal ranking by time completed, and lines between goals worked on the same day.
+8. On the iPhone Home Screen app, notifications arrive at 08:00 (today's plan), 21:00 (anything still unchecked) and Sunday 20:00 (the week's ranking).
 
 The original rep flow (rep types, Schedule, chains, Sunday debrief) is retired;
 its history stays in the database and in History, Analytics and Week.

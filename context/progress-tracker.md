@@ -34,8 +34,9 @@ instruction. **Build Plan 2 is complete.**
 
 **Build Plan 3** (`context/specs/15-goal-links-and-push.md`, Units 21–24):
 goal links in the week graph, then push notifications to Chris's iPhone.
-Units 21–23 are shipped on the branch; Unit 24 next. **Push needs three
-Railway variables before it can work in production** — see Unit 23 below.
+**Units 21–24 are shipped on the branch — Build Plan 3 is complete there,
+not yet merged.** Push needs three Railway variables before it works in
+production — see Unit 23 below.
 
 **Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
@@ -271,6 +272,14 @@ real calendar. This was the redesign's first contact with real Google.
   container's Debian setuptools; tests ran in a venv (Docker upgrades
   setuptools first, so Railway is unaffected).
 
+- **Unit 24 — The three notifications** (2026-09-24, branch).
+  `services/notifications.py` (pure message builders + senders) and three
+  cron jobs in `settings.tz`, registered only when push is configured:
+  08:00 morning summary, 21:00 evening reminder (silent if nothing pending),
+  Sunday 20:00 weekly recap (opens `/?view=week-graph`). 9 new tests, 98/98.
+  Server with VAPID set logged all three next fire times in New York time;
+  the week-graph launch link opens in Week mode.
+
 ## In Progress
 
 Nothing.
@@ -414,6 +423,8 @@ Decisions. None open.
   tracker project"; CLAUDE.md's "explainable by Chris" rule is waived for this
   dependency. · Traded away: a ~1.4 MB lazy chunk and a force layout nobody
   has to understand.
+- **Notification times** (2026-09-24, agent default, unconfirmed) — 08:00,
+  21:00, Sunday 20:00, fixed in `scheduler.NOTIFICATION_JOBS`. Change there.
 - **Build Plan 3 scope** (2026-09-24, Chris) — goal lines mean "worked the
   same day" (completed tasks, week view); push notifications go to his iPhone
   as an installed web app, with all three messages: evening reminder, morning

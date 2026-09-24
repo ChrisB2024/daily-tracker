@@ -20,7 +20,7 @@ code consistently follows); each one that the code currently breaks is listed in
 | LLM | `anthropic` SDK, model `claude-opus-4-8` | Generates the weekly debrief prose from aggregated counts. |
 | TTS | `elevenlabs` SDK, `eleven_turbo_v2_5`, voice `21m00Tcm4TlvDq8ikWAM` | Audio debrief. |
 | Email | `smtplib` + Gmail SMTP (app password) | Stopgap delivery channel for the Sunday debrief. |
-| Scheduler | APScheduler `AsyncIOScheduler`, started in FastAPI's `startup` hook | In-process, two jobs since Unit 20: the 00:00 task sweep and the 15-minute calendar sync. No external cron, no worker process. |
+| Scheduler | APScheduler `AsyncIOScheduler`, started in FastAPI's `startup` hook | In-process: the 00:00 task sweep, the 15-minute calendar sync, and (when push is configured, Unit 24) three notification jobs — 08:00, 21:00, Sunday 20:00. No external cron, no worker process. |
 | Deploy | Docker on Railway; frontend on Vercel, both auto-deploying from `main` | `CMD` runs `alembic upgrade head && uvicorn` on port 8000 — a failed migration stops the container rather than booting against the old schema, which the README and the Vite dev proxy now match. |
 
 ## Ownership Map
