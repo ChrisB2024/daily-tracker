@@ -207,3 +207,48 @@ async def test_day_graph_links_tasks_to_goals_and_sizes_goals_by_completed_time(
 async def test_empty_day_graph(client):
     r = await client.get("/tasks/graph", params={"date": "2020-01-01"})
     assert r.status_code == 200 and r.json()["nodes"] == [] and r.json()["links"] == []
+
+
+# --- week graph (Unit 19) ---------------------------------------------------------------
+
+
+async def test_week_graph_covers_monday_to_sunday_and_ranks_goals(client, session, factory):
+    from datetime import date as _date
+
+    a = (await factory.goal("Angle")).id
+    h = (await factory.goal("Hitwin")).id
+    monday = _date(2026, 9, 21)
+
+    def task(goal_id, event_id, on, minutes, status=TaskStatus.completed):
+        return Task(goal_id=goal_id, calendar_event_id=event_id, title=event_id,
+                    scheduled_date=on, duration_minutes=minutes, status=status)
+
+    session.add_all([
+        task(a, "a-mon", monday, 60),
+        task(a, "a-sun", monday + timedelta(days=6), 180),
+        task(h, "h-wed", monday + timedelta(days=2), 120),
+        task(h, "h-prev-sun", monday - timedelta(days=1), 600),  # last week
+        task(h, "h-next-mon", monday + timedelta(days=7), 600),  # next week
+    ])
+    await session.commit()
+
+    # Any day of the week snaps to its Monday.
+    r = await client.get("/tasks/graph", params={"week_start": "2026-09-24"})
+    assert r.status_code == 200
+    body = r.json()
+    assert (body["start_date"], body["end_date"]) == ("2026-09-21", "2026-09-27")
+    goals = [n for n in body["nodes"] if n["kind"] == "goal"]
+    assert [(g["label"], g["minutes_completed"]) for g in goals] == [("Angle", 240), ("Hitwin", 120)]
+    # Colour follows creation order (Angle first), not this week's ranking.
+    assert [g["color_slot"] for g in goals] == [1, 2]
+
+    # ...so the same goal keeps its colour in a day where the ranking flips.
+    day = await client.get("/tasks/graph", params={"date": "2026-09-23"})
+    only = [n for n in day.json()["nodes"] if n["kind"] == "goal"]
+    assert [(g["label"], g["color_slot"]) for g in only] == [("Hitwin", 2)]
+    assert len(body["links"]) == 3
+
+
+async def test_graph_rejects_day_and_week_together(client):
+    r = await client.get("/tasks/graph", params={"date": "2026-09-24", "week_start": "2026-09-21"})
+    assert r.status_code == 400

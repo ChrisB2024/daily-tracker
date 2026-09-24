@@ -201,10 +201,12 @@ export async function giveCancelReason(taskId, reason) {
   return response.json();
 }
 
-export async function getTaskGraph(date = null) {
+// One of { date } for a day or { weekStart } for the Mon–Sun week containing it.
+export async function getTaskGraph({ date = null, weekStart = null } = {}) {
   const params = new URLSearchParams();
   if (date) params.append("date", date);
+  if (weekStart) params.append("week_start", weekStart);
   const response = await fetch(apiUrl(`/tasks/graph?${params}`));
-  if (!response.ok) throw new Error("Failed to fetch the day graph");
+  if (!response.ok) throw new Error("Failed to fetch the graph");
   return response.json();
 }

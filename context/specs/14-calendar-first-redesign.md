@@ -223,11 +223,21 @@ are six new `--goal-*` tokens read from `:root` at runtime. A text legend under
 the canvas repeats the numbers exactly. No inter-goal links and no decorative
 "dust" points: every point on screen is a real task.
 
-### Unit 19 — Week view by goal
+### Unit 19 — Week view by goal — shipped 2026-09-24
 
 **Builds:** the same points-and-lines view over Mon–Sun, goal nodes sized by
 minutes completed that week, and a ranked list beside it answering "which goal
 got the most time this week". `GET /tasks/graph?week_start=`.
+
+*As built:* the day graph became `TaskGraph.jsx` with a Day / Week switch; in
+week mode ‹ › move a week and the title reads "Week of Sep 21 – Sep 27".
+`week_start` accepts any day and snaps to its Monday through `week_start_for`,
+the one week definition shared with the rep metrics; `date` and `week_start`
+together are a 400. The legend became a ranked list, "Most time this week".
+Each goal now carries a `color_slot` (creation order, mod 6) so it keeps one
+colour across every day and week — found while testing, when ranking-based
+colours made Hitwin white in one view and amber in the next. With more than
+six goals, colours repeat.
 
 ### Unit 20 — Retire the rep UI
 

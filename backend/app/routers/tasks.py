@@ -3,7 +3,8 @@ Tasks — calendar events tagged to a goal (calendar-first redesign).
 
 Routes:
     GET  /tasks                     tasks for one day (?date=YYYY-MM-DD, default today)
-    GET  /tasks/graph               goals and tasks as nodes and links (?date=, default today)
+    GET  /tasks/graph               goals and tasks as nodes and links for one day (?date=,
+                                    default today) or one Mon–Sun week (?week_start=)
     POST /tasks/sync                pull one day from Google Calendar now (?date=, default today)
     POST /tasks/{id}/complete       check a task off; its event turns green
     POST /tasks/{id}/cancel-reason  say why a removed task was removed
@@ -11,7 +12,7 @@ Routes:
 There is no create, update or delete: the calendar is where tasks are made.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -25,6 +26,7 @@ from app.db.session import get_session
 from app.models import Task, TaskStatus
 from app.schemas.task import TaskCancelReason, TaskGraphRead, TaskRead, TaskSyncRead
 from app.services.google_calendar import GoogleCalendarClient
+from app.services.summary import week_start_for
 from app.services.task_graph import get_task_graph
 from app.services.task_sync import sync_tasks
 
@@ -62,10 +64,20 @@ def _read(task: Task) -> TaskRead:
 
 
 @router.get("/graph", response_model=TaskGraphRead)
-async def day_graph(
+async def task_graph(
     on: date | None = Query(None, alias="date"),
+    week_start: date | None = Query(None, description="Any day in the week; snapped to its Monday"),
     session: AsyncSession = Depends(get_session),
 ):
+    if on is not None and week_start is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ask for a day or a week, not both",
+        )
+    if week_start is not None:
+        # The one definition of a week (Mon–Sun), shared with the rep metrics.
+        monday = week_start_for(week_start)
+        return await get_task_graph(session, monday, monday + timedelta(days=6))
     day = on or _today()
     return await get_task_graph(session, day, day)
 

@@ -4,7 +4,9 @@ import SpriteText from "three-spritetext";
 import * as THREE from "three";
 import { getTaskGraph } from "../api";
 
-// Lazy-loaded from Dashboard: three.js is large, and Today should not pay for it.
+// The points-and-lines graph of tasks and goals, for one day (Unit 18) or one
+// Mon–Sun week (Unit 19). Lazy-loaded from Dashboard: three.js is large, and
+// Today should not pay for it.
 
 // "2026-09-24" ± n days, done on the calendar date alone so no timezone can
 // shift it (same reason as parseISODate in Dashboard).
@@ -13,6 +15,21 @@ function shiftDate(iso, days) {
   const next = new Date(y, m - 1, d + days);
   const pad = (n) => String(n).padStart(2, "0");
   return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
+}
+
+// Monday of the week containing `iso` — the same Mon–Sun week the API uses.
+function mondayOf(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const weekday = new Date(y, m - 1, d).getDay(); // 0 = Sunday
+  return shiftDate(iso, -((weekday + 6) % 7));
+}
+
+function formatWeek(mondayIso) {
+  const fmt = (iso) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+  return `Week of ${fmt(mondayIso)} – ${fmt(shiftDate(mondayIso, 6))}`;
 }
 
 function formatLongDate(iso) {
@@ -92,18 +109,23 @@ function makeHalo(color, radius, strength) {
   return halo;
 }
 
-export default function DayGraph({ initialDate, onBack }) {
-  const [date, setDate] = useState(initialDate);
-  const [result, setResult] = useState({ date: null, data: null, error: null });
+export default function TaskGraph({ initialDate, onBack }) {
+  const [mode, setMode] = useState("day"); // "day" | "week"
+  const [date, setDate] = useState(initialDate); // the day shown, or a day in the week shown
+  const [result, setResult] = useState({ key: null, data: null, error: null });
   const containerRef = useRef(null);
 
-  useEffect(() => {
-    getTaskGraph(date)
-      .then((data) => setResult({ date, data, error: null }))
-      .catch((err) => setResult({ date, data: null, error: err.message }));
-  }, [date]);
+  const monday = mondayOf(date);
+  const key = mode === "day" ? `day:${date}` : `week:${monday}`;
 
-  const loading = result.date !== date;
+  useEffect(() => {
+    const request = mode === "day" ? getTaskGraph({ date }) : getTaskGraph({ weekStart: monday });
+    request
+      .then((data) => setResult({ key, data, error: null }))
+      .catch((err) => setResult({ key, data: null, error: err.message }));
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps -- key encodes mode, date and monday
+
+  const loading = result.key !== key;
   const data = loading ? null : result.data;
   const goals = data ? data.nodes.filter((n) => n.kind === "goal") : [];
 
@@ -113,12 +135,13 @@ export default function DayGraph({ initialDate, onBack }) {
     if (!el || !data || data.nodes.length === 0) return;
 
     const tokens = readTokens();
-    // Goals arrive most-time-first, so colours are stable for a given day.
+    // color_slot is fixed per goal by the API, so a goal has the same colour
+    // in every day and week view.
     const goalColor = {};
     data.nodes
       .filter((n) => n.kind === "goal")
-      .forEach((g, i) => {
-        goalColor[g.goal_id] = tokens.goals[i % tokens.goals.length];
+      .forEach((g) => {
+        goalColor[g.goal_id] = tokens.goals[g.color_slot - 1];
       });
 
     const colorOf = (node) => {
@@ -197,11 +220,11 @@ export default function DayGraph({ initialDate, onBack }) {
     };
   }, [data]);
 
-  const today = new Date();
-  const todayIso = shiftDate(
-    `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`,
-    0,
-  );
+  const now = new Date();
+  const todayIso = shiftDate(`${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`, 0);
+  const step = mode === "day" ? 1 : 7;
+  const atLatest = mode === "day" ? date >= todayIso : shiftDate(monday, 7) > todayIso;
+  const unit = mode === "day" ? "day" : "week";
 
   return (
     <section className="day-graph">
@@ -212,37 +235,55 @@ export default function DayGraph({ initialDate, onBack }) {
         <div className="day-graph-date">
           <button
             className="day-graph-nav"
-            onClick={() => setDate(shiftDate(date, -1))}
-            aria-label="Previous day"
+            onClick={() => setDate(shiftDate(date, -step))}
+            aria-label={`Previous ${unit}`}
           >
             ‹
           </button>
-          <h2>{formatLongDate(date)}</h2>
+          <h2>{mode === "day" ? formatLongDate(date) : formatWeek(monday)}</h2>
           <button
             className="day-graph-nav"
-            onClick={() => setDate(shiftDate(date, 1))}
-            disabled={date >= todayIso}
-            aria-label="Next day"
+            onClick={() => setDate(shiftDate(date, step))}
+            disabled={atLatest}
+            aria-label={`Next ${unit}`}
           >
             ›
           </button>
         </div>
-        <span className="day-graph-hint">Drag to rotate · scroll to zoom</span>
+        <div className="graph-mode" role="group" aria-label="Graph range">
+          {["day", "week"].map((m) => (
+            <button
+              key={m}
+              className={`graph-mode-button ${mode === m ? "active" : ""}`}
+              onClick={() => setMode(m)}
+              aria-pressed={mode === m}
+            >
+              {m === "day" ? "Day" : "Week"}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading && <div className="loading">Loading…</div>}
       {!loading && result.error && <div className="error">Error: {result.error}</div>}
       {!loading && data && data.nodes.length === 0 && (
-        <p className="empty">No tasks on this day.</p>
+        <p className="empty">No tasks {mode === "day" ? "on this day" : "this week"}.</p>
       )}
       {!loading && data && data.nodes.length > 0 && (
         <>
           <div className="day-graph-canvas" ref={containerRef} />
-          {/* The same numbers as text: readable without WebGL, and exact. */}
-          <ul className="day-graph-legend">
+          <p className="day-graph-hint">Drag to rotate · scroll to zoom</p>
+          {/* The same numbers as text: readable without WebGL, and exact. Goals
+              arrive ranked by time completed, so this is also the answer to
+              "which goal got the most work". */}
+          <h3 className="day-graph-legend-title">
+            Most time {mode === "day" ? "today" : "this week"}
+          </h3>
+          <ol className="day-graph-legend">
             {goals.map((g, i) => (
               <li key={g.id}>
-                <span className={`day-graph-swatch goal-color-${(i % 6) + 1}`} />
+                <span className="day-graph-rank">{i + 1}</span>
+                <span className={`day-graph-swatch goal-color-${g.color_slot}`} />
                 <strong>{g.label}</strong>
                 <span>
                   {formatMinutes(g.minutes_completed)} of {formatMinutes(g.minutes_planned)} ·{" "}
@@ -250,7 +291,7 @@ export default function DayGraph({ initialDate, onBack }) {
                 </span>
               </li>
             ))}
-          </ul>
+          </ol>
         </>
       )}
     </section>

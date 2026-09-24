@@ -26,7 +26,7 @@ import WeekView from "./WeekView";
 import "../styles/dashboard.css";
 
 // three.js is large; load the graph only when a day is opened.
-const DayGraph = lazy(() => import("./DayGraph"));
+const TaskGraph = lazy(() => import("./TaskGraph"));
 
 export default function Dashboard() {
   const [view, setView] = useState("today");
@@ -149,7 +149,7 @@ export default function Dashboard() {
 
       {view === "day-graph" && graphDate && (
         <Suspense fallback={<div className="loading">Loading…</div>}>
-          <DayGraph initialDate={graphDate} onBack={() => setView("today")} />
+          <TaskGraph initialDate={graphDate} onBack={() => setView("today")} />
         </Suspense>
       )}
     </div>

@@ -57,6 +57,7 @@ class TaskGraphNode(BaseModel):
     goal_id: str
     label: str
     # goal nodes
+    color_slot: int | None = None  # 1..6 → the --goal-N token; fixed per goal
     task_count: int | None = None
     completed_count: int | None = None
     minutes_completed: int | None = None

@@ -24,7 +24,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Task, TaskStatus
+from app.models import Goal, Task, TaskStatus
+
+# How many --goal-N colour tokens the frontend defines.
+GOAL_COLOR_COUNT = 6
 
 
 async def get_task_graph(session: AsyncSession, start: date, end: date) -> dict:
@@ -42,6 +45,13 @@ async def get_task_graph(session: AsyncSession, start: date, end: date) -> dict:
         )
     ).scalars().all()
 
+    # A goal keeps one colour in every view: its slot is its position among all
+    # goals by creation order, not its rank in this particular day or week.
+    goal_order = (
+        await session.execute(select(Goal.id).order_by(Goal.created_at, Goal.id))
+    ).scalars().all()
+    color_slot = {gid: i % GOAL_COLOR_COUNT + 1 for i, gid in enumerate(goal_order)}
+
     goals: dict = {}
     task_nodes = []
     links = []
@@ -54,6 +64,7 @@ async def get_task_graph(session: AsyncSession, start: date, end: date) -> dict:
                 "kind": "goal",
                 "goal_id": str(t.goal_id),
                 "label": t.goal.title,
+                "color_slot": color_slot[t.goal_id],
                 "task_count": 0,
                 "completed_count": 0,
                 "minutes_completed": 0,
