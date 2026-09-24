@@ -21,7 +21,10 @@ until Unit 20 retires its UI. Its data is kept forever.
 
 ## Working On
 
-**Unit 18 (day graph) shipped on the redesign branch, not yet merged.**
+**Unit 18 (day graph) merged to `main` on 2026-09-24** at Chris's
+instruction. After Railway finishes deploying, refresh once — the graph calls
+the new `/tasks/graph`. Still to check on real hardware: the halo glow and a
+black background on Chris's Mac (only verified under SwiftShader).
 
 **Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
@@ -220,7 +223,7 @@ Nothing.
 15. ~~Pull tasks from Google Calendar~~ — shipped 2026-09-24
 16. ~~Check off, 00:00 sweep, removal reasons~~ — shipped 2026-09-24
 17. ~~Today becomes the daily task checklist~~ — shipped 2026-09-24
-18. ~~Day graph~~ — shipped 2026-09-24 (branch)
+18. ~~Day graph~~ — shipped and merged 2026-09-24
 19. Week graph + goal ranking by time spent
 20. Retire Schedule, rep types, chains and the debrief; rep history stays read-only
 
@@ -578,8 +581,7 @@ in `architecture.md`.
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
 first — it supersedes the notes below on direction. Units 14–16 are shipped on
-`main` and confirmed live; Unit 18 is on the branch. Next action: merge
-Unit 18 when Chris says so, then Unit 19 (week view by goal).
+`main`, Unit 18 included. Next action: Unit 19 (week view by goal).
 
 **Local test setup in a cloud container:** `conftest.py` connects as role
 `chrisilias` with no password. There, start Postgres, create that role with a
