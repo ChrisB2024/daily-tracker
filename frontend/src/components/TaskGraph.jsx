@@ -57,6 +57,7 @@ function readTokens() {
   return {
     bg: token("--bg"),
     pending: token("--pending"),
+    muted: token("--muted"),
     missed: token("--missed"),
     goals: [1, 2, 3, 4, 5, 6].map((i) => token(`--goal-${i}`)),
   };
@@ -197,9 +198,21 @@ export default function TaskGraph({ initialDate, onBack }) {
         }
         return group;
       })
-      .linkColor((l) => goalColor[typeof l.target === "object" ? l.target.goal_id : ""])
+      // Task → goal lines take the goal's colour. Goal ↔ goal "worked the same
+      // day" lines (week view, Unit 21) are neutral, and thicker the more days
+      // the two goals shared.
+      .linkColor((l) =>
+        l.kind === "shared_day"
+          ? tokens.muted
+          : goalColor[typeof l.target === "object" ? l.target.goal_id : ""],
+      )
       .linkOpacity(0.35)
-      .linkWidth(0)
+      .linkWidth((l) => (l.kind === "shared_day" ? 0.4 + l.weight * 0.35 : 0))
+      .linkLabel((l) =>
+        l.kind === "shared_day"
+          ? `${l.source.label} & ${l.target.label}: worked the same day on ${l.weight} day${l.weight === 1 ? "" : "s"}`
+          : "",
+      )
       // Frame every cluster once the layout has settled.
       .cooldownTicks(120)
       .onEngineStop(() => graph.zoomToFit(600, 40))
@@ -208,6 +221,13 @@ export default function TaskGraph({ initialDate, onBack }) {
         nodes: data.nodes.map((n) => ({ ...n })),
         links: data.links.map((l) => ({ ...l })),
       });
+
+    // Shared-day links are long and loose, so clusters stay readable as
+    // clusters instead of collapsing into one ball.
+    graph
+      .d3Force("link")
+      .distance((l) => (l.kind === "shared_day" ? 140 : 30))
+      .strength((l) => (l.kind === "shared_day" ? 0.05 : 1));
 
     const onResize = () => graph.width(el.clientWidth).height(el.clientHeight);
     window.addEventListener("resize", onResize);

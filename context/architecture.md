@@ -14,7 +14,7 @@ code consistently follows); each one that the code currently breaks is listed in
 | ORM | SQLAlchemy 2.x async + asyncpg | Typed `Mapped[]` models; async driver matches the framework. |
 | Migrations | Alembic, async `env.py` | `env.py` drives the sync migration API through `run_sync()` and reads the same `DATABASE_URL` as the app, so there is one source of truth for connection config. |
 | Database | Postgres | Native UUID, `Date`/`Time` columns, enum types. Data is relational (Goal → RepType → Rep) with no document-shaped payloads. |
-| Frontend | React 19 + Vite, no router, no state library | One user, seven views, all state fetched per view. A router would add deep-linking nobody asked for. |
+| Frontend | React 19 + Vite, no router, no state library (graphs: `3d-force-graph` + three.js, lazy-loaded) | One user, seven views, all state fetched per view. A router would add deep-linking nobody asked for. |
 | Styling | One hand-written CSS file with `:root` custom properties | 1524 lines, semantic kebab-case class names. No Tailwind, no CSS modules. |
 | Calendar | Google Calendar API v3 (`google-api-python-client`) | Scoped to `calendar.events`. The mirror for reps (written, never read); the source of planned work for tasks (read, recoloured only). |
 | LLM | `anthropic` SDK, model `claude-opus-4-8` | Generates the weekly debrief prose from aggregated counts. |

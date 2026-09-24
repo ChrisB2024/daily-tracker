@@ -32,6 +32,10 @@ instruction.
 **Unit 20 (retire the rep UI) merged to `main` on 2026-09-24** at Chris's
 instruction. **Build Plan 2 is complete.**
 
+**Build Plan 3** (`context/specs/15-goal-links-and-push.md`, Units 21–24):
+goal links in the week graph, then push notifications to Chris's iPhone.
+Unit 21 is shipped on the branch; Units 22–24 next.
+
 **Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
 revision `8fcad7e710dc` on deploy; Vercel ships the new Today). **Confirmed
@@ -235,6 +239,14 @@ real calendar. This was the redesign's first contact with real Google.
   scroll at 360/390/420/1280). 82/82 tests, `smoke.py` 17/17, build passes,
   lint down to 3 pre-existing errors (two old ones lived in deleted files).
 
+- **Unit 21 — Goal links in the week graph** (2026-09-24, branch). Links gain
+  `kind` (`task` | `shared_day`) and `weight`; `_shared_day_links` in
+  `task_graph.py` links goals that both had a completed task on the same day,
+  weight = shared days, week ranges only. Drawn neutral, thicker with weight,
+  long and loose so clusters stay apart; hover names the days. 1 new test,
+  83/83; seeded week gave exactly the expected pairs; rendered in Chromium
+  with no errors.
+
 ## In Progress
 
 Nothing.
@@ -378,6 +390,11 @@ Decisions. None open.
   tracker project"; CLAUDE.md's "explainable by Chris" rule is waived for this
   dependency. · Traded away: a ~1.4 MB lazy chunk and a force layout nobody
   has to understand.
+- **Build Plan 3 scope** (2026-09-24, Chris) — goal lines mean "worked the
+  same day" (completed tasks, week view); push notifications go to his iPhone
+  as an installed web app, with all three messages: evening reminder, morning
+  summary, weekly recap. Times (21:00, 08:00, Sunday 20:00) are agent
+  defaults, not yet confirmed.
 - **Poll the calendar, don't subscribe to push** (2026-09-24, proposed) — a
   15-minute job plus a sync button. Google watch channels need a public
   webhook, renewals and a verified domain; polling is one function Chris can
