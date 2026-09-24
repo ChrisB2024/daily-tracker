@@ -3,6 +3,13 @@
 Recovered from the codebase and `readme.md` on 2026-09-07. Scope and status
 confirmed by Chris; everything else is observed from code.
 
+> **Direction changed 2026-09-24.** Google Calendar is now the input and the
+> tracker the scoreboard: `[Goal] …` events become tasks, checked off at end of
+> day, shown as a points-and-lines graph. See
+> `specs/14-calendar-first-redesign.md`. This file describes the rep system as
+> shipped; its Core Flow, Capabilities and Never list are rewritten unit by unit
+> as the redesign lands. "Two-way calendar sync" is leaving the Never list.
+
 ## The Problem
 
 > Chris currently re-derives "did I actually move the needle this week?" from

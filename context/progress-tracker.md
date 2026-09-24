@@ -9,22 +9,20 @@ the live Railway deploy is recorded as Chris reported it.
 
 ## Phase
 
-**Shipped and in daily use.** All five slices from `readme.md`'s build order
-have landed in some form. Chris confirmed on 2026-09-07 that the Railway
-backend and hosted frontend are up and he uses it every day.
+**Redesign: calendar first** (decided 2026-09-24). V1 is shipped and in daily
+use, but planning in the app and mirroring to Google Calendar stopped being
+productive — Chris plans in Google Calendar. The flow inverts: calendar events
+tagged `[Goal] …` are pulled in as **tasks**, checked off at end of day, and
+shown as a points-and-lines graph per day and per week. The plan is
+`context/specs/14-calendar-first-redesign.md` (Units 14–20).
 
-The work now is not "finish V1" — it is closing the gap between what the system
-promises and what it actually does. Three of the readme's own V1-failure
-conditions are currently live: the debrief reads as encouragement, calendar sync
-can fail silently, and chains display wrong (in fact, not at all).
+Everything below **Shipped** describes the rep system, which keeps running
+until Unit 20 retires its UI. Its data is kept forever.
 
 ## Working On
 
-Nothing in flight. The only uncommitted change is
-`backend/scripts/google_oauth.py`, which switches the one-time OAuth flow to
-`127.0.0.1` with `open_browser=False` and exits non-zero when Google returns no
-refresh token. It looks finished and is unreleased — **decide whether to commit
-it before starting anything else.**
+Nothing in flight. The redesign plan is written and waiting on Chris's go-ahead
+for **Unit 14** (the `tasks` table, schema only).
 
 ## Shipped
 
@@ -155,7 +153,17 @@ Nothing.
 
 ## Next
 
-The build plan is `context/specs/00-build-plan.md` — 13 units, approved
+**Build Plan 2** — `context/specs/14-calendar-first-redesign.md`:
+
+14. `tasks` table (schema only)
+15. Pull tasks from Google Calendar (sync service, `GET /tasks`, 15-min job)
+16. Check off + end-of-day sweep for tasks (green / red)
+17. Today becomes the daily task checklist
+18. Day graph — tasks as points, lines to their goals *(blocked: skill-graph reference)*
+19. Week graph + goal ranking by time spent
+20. Retire the Schedule and rep-type UI; rep history stays read-only
+
+**Build Plan 1** (all shipped) — the build plan is `context/specs/00-build-plan.md` — 13 units, approved
 2026-09-07. Start with **Unit 01**. In short:
 
 1. ~~**Guard rep deletion**~~ — shipped 2026-09-07.
@@ -207,6 +215,22 @@ Changing a Railway variable triggers an automatic redeploy.
 
 The agent must not answer these on its own.
 
+**Redesign (2026-09-24)** — full text in `specs/14-calendar-first-redesign.md`:
+
+- **The skill-graph project.** Unit 18 should match its points-and-lines look.
+  It is not in this session's repos — link or screenshot needed. Blocks Unit 18.
+- **All-day `[Goal]` events** — task with 0 minutes, a default duration, or
+  ignored? Blocks Unit 15.
+- **Event deleted in Google while its task is pending** — delete the task, or
+  keep it for the sweep to mark missed? Blocks Unit 15.
+- **Late check-off** — after the 23:59 sweep a task is missed and terminal. Is
+  there a grace window? Blocks Unit 16.
+- **Which calendars** — primary only, or all on the account? Blocks Unit 15.
+- **Debrief and chains** — rebuild on tasks, keep on rep history, or retire?
+  Not blocking any unit.
+
+**Rep system (pre-redesign)** — may be moot after Unit 20:
+
 - **Push notification delivery.** Email with an MP3 was a stopgap; Chris still
   wants push. Which channel — a web push subscription from the dashboard, or
   something else? Blocks the readme's original Slice 4 item 17.
@@ -224,6 +248,28 @@ The agent must not answer these on its own.
   real use?
 
 ## Decisions
+
+- **Calendar is the input; the tracker is the scoreboard** (2026-09-24) —
+  typing work into the app and mirroring it to the calendar meant planning in
+  two places, and Chris only planned in one. Tasks come from `[Goal] …` events;
+  untagged events are ignored. · Traded away: Product invariant 5 ("the
+  calendar is never a source") and the "never two-way sync" boundary. What is
+  kept: nothing read from Google may change a completed or missed task.
+- **Tasks are a new table, not reps** (2026-09-24) — tasks have no rep type,
+  and fitting them into `reps` would mean making `rep_type_id` nullable, which
+  rewrites a `reps` column. · Traded away: two outcome tables to read from when
+  history spans both eras.
+- **Unchecked at end of day = missed, event turns red** (2026-09-24) — same
+  semantics as reps, so missed work stays visible.
+- **"Worked more" = minutes of completed tasks** (2026-09-24) — not task count.
+  · Traded away: a goal with many small wins looks lighter than one long block.
+- **Keep rep history, retire the rep UI** (2026-09-24) — no rep row is deleted
+  and no rep column dropped; Schedule and rep-type management leave the nav in
+  Unit 20.
+- **Poll the calendar, don't subscribe to push** (2026-09-24, proposed) — a
+  15-minute job plus a sync button. Google watch channels need a public
+  webhook, renewals and a verified domain; polling is one function Chris can
+  read top to bottom.
 
 - **First reps flagged on the six goals with real volume** (2026-09-07) — the
   flag was set on 1 of 66 rep types, so `readme.md`'s "headline behavioural
@@ -425,6 +471,12 @@ in `architecture.md`.
   it is racy — harmless at one user.
 
 ## Resume Here
+
+**Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
+first — it supersedes the notes below on direction. Next action: Unit 14, once
+Chris approves. Units 15 and 16 are blocked on the redesign Open Questions.
+
+*Pre-redesign notes:*
 
 **Read `readme.md` first — it is the original spec and still the authority on
 product behavior.** Then `architecture.md`, and specifically its **Known

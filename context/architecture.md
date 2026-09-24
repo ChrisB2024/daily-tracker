@@ -156,6 +156,11 @@ Non-Negotiables from `readme.md`, restated as checkable rules.
 
 ### Product
 
+> **Pending change (2026-09-24).** Product 5 and Security 3 flip when Unit 15
+> of `specs/14-calendar-first-redesign.md` lands: the calendar becomes the
+> source of *planned* work, read under the existing `calendar.events` scope.
+> Until that unit ships, they hold as written.
+
 1. **Every rep tags to a rep type; every rep type tags to a goal.** No orphans,
    no untyped reps.
 2. **Every rep type has a non-empty one-line criterion.** Required at creation.
