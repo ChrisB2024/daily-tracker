@@ -157,11 +157,11 @@ Nothing.
 
 14. `tasks` table (schema only)
 15. Pull tasks from Google Calendar (sync service, `GET /tasks`, 15-min job)
-16. Check off + end-of-day sweep for tasks (green / red)
+16. Check off, 00:00 sweep (green / red), removal reasons
 17. Today becomes the daily task checklist
-18. Day graph — tasks as points, lines to their goals *(blocked: skill-graph reference)*
+18. Day graph — 3D points-and-lines, Lobe Atlas look
 19. Week graph + goal ranking by time spent
-20. Retire the Schedule and rep-type UI; rep history stays read-only
+20. Retire Schedule, rep types, chains and the debrief; rep history stays read-only
 
 **Build Plan 1** (all shipped) — the build plan is `context/specs/00-build-plan.md` — 13 units, approved
 2026-09-07. Start with **Unit 01**. In short:
@@ -215,19 +215,11 @@ Changing a Railway variable triggers an automatic redeploy.
 
 The agent must not answer these on its own.
 
-**Redesign (2026-09-24)** — full text in `specs/14-calendar-first-redesign.md`:
+**Redesign (2026-09-24)** — the first six were answered by Chris the same
+day and moved to Decisions. Still open:
 
-- **The skill-graph project.** Unit 18 should match its points-and-lines look.
-  It is not in this session's repos — link or screenshot needed. Blocks Unit 18.
-- **All-day `[Goal]` events** — task with 0 minutes, a default duration, or
-  ignored? Blocks Unit 15.
-- **Event deleted in Google while its task is pending** — delete the task, or
-  keep it for the sweep to mark missed? Blocks Unit 15.
-- **Late check-off** — after the 23:59 sweep a task is missed and terminal. Is
-  there a grace window? Blocks Unit 16.
-- **Which calendars** — primary only, or all on the account? Blocks Unit 15.
-- **Debrief and chains** — rebuild on tasks, keep on rep history, or retire?
-  Not blocking any unit.
+- **A removal reason never given** — keep asking on following days, or let it
+  expire? Blocks the reasons list in Unit 17.
 
 **Rep system (pre-redesign)** — may be moot after Unit 20:
 
@@ -266,6 +258,16 @@ The agent must not answer these on its own.
 - **Keep rep history, retire the rep UI** (2026-09-24) — no rep row is deleted
   and no rep column dropped; Schedule and rep-type management leave the nav in
   Unit 20.
+- **Redesign details** (2026-09-24, Chris) — primary calendar only; a task's
+  duration is its calendar length, all-day events included (1440 min); tasks
+  are checkable until midnight and the sweep runs at 00:00; a pending task
+  whose event is deleted becomes `cancelled` and Chris writes a one-line reason
+  at end of day; the Sunday debrief and chains are dropped for now. · Traded
+  away: one all-day `[Goal]` event outweighs a full day of timed work in the
+  graph.
+- **The graph looks like Lobe Atlas** (2026-09-24) — dark, glowing points,
+  coloured labelled clusters per goal, drag to rotate, scroll to zoom. Unit 18
+  decides hand-written canvas vs `3d-force-graph`.
 - **Poll the calendar, don't subscribe to push** (2026-09-24, proposed) — a
   15-minute job plus a sync button. Google watch channels need a public
   webhook, renewals and a verified domain; polling is one function Chris can
@@ -474,7 +476,7 @@ in `architecture.md`.
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
 first — it supersedes the notes below on direction. Next action: Unit 14, once
-Chris approves. Units 15 and 16 are blocked on the redesign Open Questions.
+Chris approves. Units 14–16 are unblocked.
 
 *Pre-redesign notes:*
 
