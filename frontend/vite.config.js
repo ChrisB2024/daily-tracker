@@ -11,6 +11,7 @@ export default defineConfig({
       '/rep-types': 'http://localhost:8000',
       '/debrief': 'http://localhost:8000',
       '/history': 'http://localhost:8000',
+      '/tasks': 'http://localhost:8000',
     },
   },
 })

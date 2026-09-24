@@ -14,6 +14,7 @@ import FirstRepStrip from "./FirstRepStrip";
 import ChainsList from "./ChainsList";
 import ChainsVisualization from "./ChainsVisualization";
 import TodayReps from "./TodayReps";
+import TodayTasks from "./TodayTasks";
 import RhythmChart from "./RhythmChart";
 import GoalProgressionsVisualization from "./GoalProgressionsVisualization";
 import GoalsManagement from "./GoalsManagement";
@@ -81,6 +82,8 @@ export default function Dashboard() {
                     day: "numeric",
                   })}
                 </p>
+
+                <TodayTasks />
 
                 <StatsHeader
                   dailyScore={data.daily_score}

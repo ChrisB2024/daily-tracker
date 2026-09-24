@@ -9,22 +9,26 @@ the live Railway deploy is recorded as Chris reported it.
 
 ## Phase
 
-**Shipped and in daily use.** All five slices from `readme.md`'s build order
-have landed in some form. Chris confirmed on 2026-09-07 that the Railway
-backend and hosted frontend are up and he uses it every day.
+**Redesign: calendar first** (decided 2026-09-24). V1 is shipped and in daily
+use, but planning in the app and mirroring to Google Calendar stopped being
+productive — Chris plans in Google Calendar. The flow inverts: calendar events
+tagged `[Goal] …` are pulled in as **tasks**, checked off at end of day, and
+shown as a points-and-lines graph per day and per week. The plan is
+`context/specs/14-calendar-first-redesign.md` (Units 14–20).
 
-The work now is not "finish V1" — it is closing the gap between what the system
-promises and what it actually does. Three of the readme's own V1-failure
-conditions are currently live: the debrief reads as encouragement, calendar sync
-can fail silently, and chains display wrong (in fact, not at all).
+Everything below **Shipped** describes the rep system, which keeps running
+until Unit 20 retires its UI. Its data is kept forever.
 
 ## Working On
 
-Nothing in flight. The only uncommitted change is
-`backend/scripts/google_oauth.py`, which switches the one-time OAuth flow to
-`127.0.0.1` with `open_browser=False` and exits non-zero when Google returns no
-refresh token. It looks finished and is unreleased — **decide whether to commit
-it before starting anything else.**
+Nothing in flight. **Units 14–17 merged to `main` on 2026-09-24** at
+Chris's instruction, so the calendar-first flow is live (Railway runs
+revision `8fcad7e710dc` on deploy; Vercel ships the new Today). It was merged
+**without a local test against real Google** — the first real sync happens in
+production. Check first: the Railway log should show `Scheduled task_sync`
+and `Scheduled task_sweep`, and a `[Goal] test` event should appear on Today
+after pressing Sync. If Google calls fail, the tasks list still loads from
+saved data and nothing is cancelled.
 
 ## Shipped
 
@@ -149,13 +153,68 @@ it before starting anything else.**
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
 
+- **Unit 14 — `tasks` table** (2026-09-24, branch
+  `claude/project-workflow-redesign-5cg1gk`, not yet on `main`). `Task` model
+  and `TaskStatus` (`pending / completed / missed / cancelled`), revision
+  `8fcad7e710dc`. Additive only. Verified on a scratch Postgres 16: upgrade →
+  downgrade → upgrade round-trips, and a schema dump of `reps`, `rep_types`,
+  `goals` and `weekly_summaries` is identical before and after. The downgrade
+  drops the `taskstatus` enum by hand, which autogenerate leaves out. 4 new
+  tests (defaults, unique event id, FK, all-day), 51/51 pass; server boots and
+  `smoke.py` 12/12 against the migrated database. No endpoint or UI yet.
+
+- **Unit 15 — Pull tasks from the calendar** (2026-09-24, redesign branch).
+  `GoogleCalendarClient.list_events` / `get_event`; `services/task_sync.py`
+  (`parse_event` is pure, `sync_tasks` applies the six rules in its docstring);
+  `GET /tasks?date=` and `POST /tasks/sync?date=`; a 15-minute `task_sync` job
+  over today and tomorrow, registered only when Google is configured. Goal
+  hard-delete now returns 409 while the goal has tasks, checked before any
+  calendar call. Product invariant 5 and Security 3 rewritten in
+  `architecture.md`; "two-way sync" left the Never list. 16 new tests with a
+  fake calendar, 67/67 pass; breaking the "never rewrite a finished task" rule
+  makes a test fail. Server verified against a migrated Postgres: `GET /tasks`,
+  sync 503 without credentials, hard delete 409, `smoke.py` 17/17.
+  **Not verified against real Google** — this container has no OAuth
+  credentials. First real check: run locally with `backend/.env`, add a
+  `[Goal] test` event, `POST /tasks/sync`, then delete the event and sync again.
+
+- **Unit 16 — Check off, sweep, removal reasons** (2026-09-24, redesign
+  branch). `POST /tasks/{id}/complete` (green) and
+  `POST /tasks/{id}/cancel-reason`, both 409 once the task's day has ended;
+  `services/task_sweep.py` and a `task_sweep` job at 00:00 `settings.tz`
+  (red), registered regardless of Google config like the rep sweep. 11 new
+  tests with a recording fake calendar that asserts the colours sent; 78/78
+  pass, and removing the midnight check fails two of them. Verified on a
+  migrated Postgres through the running server and by calling the real job
+  function: completed stays completed, yesterday's pending became missed,
+  cancelled untouched; `smoke.py` 17/17. Not verified against real Google.
+
+- **Unit 17 — The daily list** (2026-09-24, redesign branch). `TodayTasks` and
+  `TaskItem` at the top of Today; four `api.js` functions; `/tasks` added to
+  the Vite dev proxy (without it, local dev 404s every task call). Syncs once on
+  open because the backend does not record the job's last run. Verified in
+  Chromium through the Vite dev server against a seeded Postgres: grouping by
+  goal, all-day first, check-off turns the row green (computed colour checked),
+  a reason saves and replaces its input, the not-connected note shows. Lint:
+  no new errors (still the 6 pre-existing). Build passes.
+
 ## In Progress
 
 Nothing.
 
 ## Next
 
-The build plan is `context/specs/00-build-plan.md` — 13 units, approved
+**Build Plan 2** — `context/specs/14-calendar-first-redesign.md`:
+
+14. ~~`tasks` table (schema only)~~ — shipped 2026-09-24
+15. ~~Pull tasks from Google Calendar~~ — shipped 2026-09-24
+16. ~~Check off, 00:00 sweep, removal reasons~~ — shipped 2026-09-24
+17. ~~Today becomes the daily task checklist~~ — shipped 2026-09-24
+18. Day graph — 3D points-and-lines, Lobe Atlas look
+19. Week graph + goal ranking by time spent
+20. Retire Schedule, rep types, chains and the debrief; rep history stays read-only
+
+**Build Plan 1** (all shipped) — the build plan is `context/specs/00-build-plan.md` — 13 units, approved
 2026-09-07. Start with **Unit 01**. In short:
 
 1. ~~**Guard rep deletion**~~ — shipped 2026-09-07.
@@ -207,6 +266,11 @@ Changing a Railway variable triggers an automatic redeploy.
 
 The agent must not answer these on its own.
 
+**Redesign (2026-09-24)** — all answered by Chris the same day and moved to
+Decisions. None open.
+
+**Rep system (pre-redesign)** — may be moot after Unit 20:
+
 - **Push notification delivery.** Email with an MP3 was a stopgap; Chris still
   wants push. Which channel — a web push subscription from the dashboard, or
   something else? Blocks the readme's original Slice 4 item 17.
@@ -224,6 +288,59 @@ The agent must not answer these on its own.
   real use?
 
 ## Decisions
+
+- **Calendar is the input; the tracker is the scoreboard** (2026-09-24) —
+  typing work into the app and mirroring it to the calendar meant planning in
+  two places, and Chris only planned in one. Tasks come from `[Goal] …` events;
+  untagged events are ignored. · Traded away: Product invariant 5 ("the
+  calendar is never a source") and the "never two-way sync" boundary. What is
+  kept: nothing read from Google may change a completed or missed task.
+- **Tasks are a new table, not reps** (2026-09-24) — tasks have no rep type,
+  and fitting them into `reps` would mean making `rep_type_id` nullable, which
+  rewrites a `reps` column. · Traded away: two outcome tables to read from when
+  history spans both eras.
+- **Unchecked at end of day = missed, event turns red** (2026-09-24) — same
+  semantics as reps, so missed work stays visible.
+- **"Worked more" = minutes of completed tasks** (2026-09-24) — not task count.
+  · Traded away: a goal with many small wins looks lighter than one long block.
+- **Keep rep history, retire the rep UI** (2026-09-24) — no rep row is deleted
+  and no rep column dropped; Schedule and rep-type management leave the nav in
+  Unit 20.
+- **Redesign details** (2026-09-24, Chris) — primary calendar only; a task's
+  duration is its calendar length, all-day events included (1440 min); tasks
+  are checkable until midnight and the sweep runs at 00:00; a pending task
+  whose event is deleted becomes `cancelled` and Chris writes a one-line reason
+  at end of day; the Sunday debrief and chains are dropped for now. · Traded
+  away: one all-day `[Goal]` event outweighs a full day of timed work in the
+  graph.
+- **The graph looks like Lobe Atlas** (2026-09-24) — dark, glowing points,
+  coloured labelled clusters per goal, drag to rotate, scroll to zoom. Unit 18
+  decides hand-written canvas vs `3d-force-graph`.
+- **A goal with tasks cannot be hard-deleted** (2026-09-24, Chris) — 409,
+  checked before any Google call. Task events are Chris's own and the tracker
+  never deletes them; purging task rows would erase evidence. · Traded away: a
+  goal created by mistake and already used in the calendar can only be
+  archived.
+- **An unanswered removal reason is dropped after its day** (2026-09-24,
+  Chris) — "that day" is the task's own `scheduled_date`, so no new column was
+  needed: the endpoint refuses a reason once that day has ended, and Unit 17's
+  list shows only the day's cancelled tasks. Checking off follows the same
+  midnight rule, enforced in the endpoint as well as the sweep. · Traded away:
+  a reason is lost if the day ends first.
+- **A pending task whose event loses its `[Goal]` prefix stays pending**
+  (2026-09-24, Unit 15, agent's call within the spec) — the event still
+  exists, so nothing was deleted and there is nothing to ask a reason for.
+  Renaming a goal in the tracker would otherwise cancel every pending task
+  tagged with its old name. · Traded away: un-tagging an event is not a way to
+  withdraw a task; delete the event instead.
+- **Today syncs once when it opens** (2026-09-24, Unit 17, agent's call) —
+  the spec asked for a last-synced time, and the backend does not record
+  when the 15-minute job ran; syncing on open makes the time real and the
+  list current. · Traded away: one Google call per Today load.
+- **Poll the calendar, don't subscribe to push** (2026-09-24, proposed) — a
+  15-minute job plus a sync button. Google watch channels need a public
+  webhook, renewals and a verified domain; polling is one function Chris can
+  read top to bottom.
 
 - **First reps flagged on the six goals with real volume** (2026-09-07) — the
   flag was set on 1 of 66 rep types, so `readme.md`'s "headline behavioural
@@ -375,6 +492,12 @@ The agent must not answer these on its own.
 
 ## Known Debt
 
+- **Today scrolls sideways on a phone** (found 2026-09-24 in Unit 17,
+  pre-existing). At 420px the page is 691px wide: the seven-button nav row and
+  `.dashboard-main` overflow. Verified identical with Unit 17's changes
+  stashed, so not caused by it. Unit 20 drops three nav buttons, which may
+  mostly fix it; check then.
+
 - **Physical Exercise runs paired rep types per weekday, not duplicates.** Two
   "push day", two "pull day" and two "Legs day", all created 2026-07-02, split
   across different days of the week — one leans Monday, the other Thursday.
@@ -425,6 +548,18 @@ in `architecture.md`.
   it is racy — harmless at one user.
 
 ## Resume Here
+
+**Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
+first — it supersedes the notes below on direction. Units 14–16 are shipped on
+`main` (see Working On). Next action: confirm the first production sync,
+then Unit 18 (day graph).
+
+**Local test setup in a cloud container:** `conftest.py` connects as role
+`chrisilias` with no password. There, start Postgres, create that role with a
+password and export `PGPASSWORD`, `PGHOST=localhost`, `PGUSER=chrisilias`
+before `pytest`.
+
+*Pre-redesign notes:*
 
 **Read `readme.md` first — it is the original spec and still the authority on
 product behavior.** Then `architecture.md`, and specifically its **Known

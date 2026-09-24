@@ -166,3 +166,37 @@ export async function getDebrief(date = null) {
   if (!response.ok) throw new Error("Failed to fetch debrief");
   return response.json();
 }
+
+// Tasks — calendar events tagged "[Goal] …" (calendar-first redesign)
+export async function getTasks(date = null) {
+  const params = new URLSearchParams();
+  if (date) params.append("date", date);
+  const response = await fetch(apiUrl(`/tasks?${params}`));
+  if (!response.ok) throw new Error("Failed to fetch tasks");
+  return response.json();
+}
+
+export async function syncTasks(date = null) {
+  const params = new URLSearchParams();
+  if (date) params.append("date", date);
+  const response = await fetch(apiUrl(`/tasks/sync?${params}`), { method: "POST" });
+  if (response.status === 503) throw new Error("Google Calendar is not connected");
+  if (!response.ok) throw new Error("Could not sync with Google Calendar");
+  return response.json();
+}
+
+export async function completeTask(taskId) {
+  const response = await fetch(apiUrl(`/tasks/${taskId}/complete`), { method: "POST" });
+  if (!response.ok) throw new Error("Failed to check off task");
+  return response.json();
+}
+
+export async function giveCancelReason(taskId, reason) {
+  const response = await fetch(apiUrl(`/tasks/${taskId}/cancel-reason`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+  if (!response.ok) throw new Error("Failed to save reason");
+  return response.json();
+}

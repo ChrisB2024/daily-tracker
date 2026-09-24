@@ -1,7 +1,12 @@
 """
-Google Calendar integration for reps.
+Google Calendar integration.
 
-One-way sync: tracker → calendar. Calendar is read-only for us.
+Two directions, each with a narrow job (calendar-first redesign, Unit 15):
+  - Reps (the old system): tracker → calendar. Events are created, recoloured,
+    moved and deleted from here.
+  - Tasks: calendar → tracker. Events Chris makes are read with list_events /
+    get_event and only ever recoloured — never created, moved or deleted.
+
 All methods async-safe via asyncio.to_thread() (Google SDK is synchronous).
 """
 
@@ -13,6 +18,7 @@ from zoneinfo import ZoneInfo
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +103,73 @@ class GoogleCalendarClient:
                 return None
 
         return await asyncio.to_thread(_create)
+
+    async def list_events(self, time_min: datetime, time_max: datetime) -> list[dict] | None:
+        """
+        Every event on the primary calendar overlapping [time_min, time_max).
+
+        Returns None when Google cannot be reached — never an empty list. The
+        difference matters: the sync reads "no events" as "the events were
+        deleted", so a network failure dressed as [] would cancel every pending
+        task for the day.
+
+        singleEvents=True expands recurring events into their instances, each with
+        its own id, so a weekly "[Hitwin] standup" becomes one task per week.
+        """
+
+        def _list():
+            try:
+                service = self._build_service()
+                events: list[dict] = []
+                page_token = None
+                while True:
+                    resp = (
+                        service.events()
+                        .list(
+                            calendarId="primary",
+                            timeMin=time_min.isoformat(),
+                            timeMax=time_max.isoformat(),
+                            singleEvents=True,
+                            orderBy="startTime",
+                            maxResults=250,
+                            pageToken=page_token,
+                        )
+                        .execute()
+                    )
+                    events.extend(resp.get("items", []))
+                    page_token = resp.get("nextPageToken")
+                    if not page_token:
+                        return events
+            except Exception as e:
+                logger.error("Calendar list failed for %s to %s: %s", time_min, time_max, e)
+                return None
+
+        return await asyncio.to_thread(_list)
+
+    async def get_event(self, event_id: str) -> dict | None:
+        """
+        One event by id. Used to tell "deleted" apart from "moved elsewhere".
+
+        A deleted event comes back as {"status": "cancelled", ...} — Google either
+        still returns it with that status, or answers 404/410, which is folded
+        into the same shape. Any other failure returns None: unknown, so the
+        caller must change nothing.
+        """
+
+        def _get():
+            try:
+                service = self._build_service()
+                return service.events().get(calendarId="primary", eventId=event_id).execute()
+            except HttpError as e:
+                if e.resp.status in (404, 410):
+                    return {"id": event_id, "status": "cancelled"}
+                logger.error("Calendar get failed for event %s: %s", event_id, e)
+                return None
+            except Exception as e:
+                logger.error("Calendar get failed for event %s: %s", event_id, e)
+                return None
+
+        return await asyncio.to_thread(_get)
 
     async def patch_color(self, event_id: str, color_id: int) -> None:
         """

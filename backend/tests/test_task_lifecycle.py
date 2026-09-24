@@ -1,0 +1,166 @@
+"""
+Task check-off, the midnight sweep, and removal reasons (Unit 16).
+
+Google is replaced by RecordingCalendar, which remembers every colour patch, so
+"turns green" and "turns red" are asserted without a network.
+"""
+
+from datetime import datetime, time, timedelta
+
+import pytest
+from sqlalchemy import select
+
+from app.config import settings
+from app.models import Task, TaskStatus
+from app.services.task_sweep import sweep_missed_tasks
+
+
+def today():
+    return datetime.now(tz=settings.tz).date()
+
+
+class RecordingCalendar:
+    patches: list[tuple[str, int]] = []
+
+    def __init__(self, *args):
+        pass
+
+    async def patch_color(self, event_id, color_id):
+        RecordingCalendar.patches.append((event_id, color_id))
+
+
+@pytest.fixture
+def calendar(monkeypatch):
+    """Turn Google 'on' and route every client through RecordingCalendar."""
+    import app.routers.tasks
+    import app.services.task_sweep
+
+    RecordingCalendar.patches = []
+    monkeypatch.setattr(settings, "google_client_id", "x")
+    monkeypatch.setattr(settings, "google_client_secret", "x")
+    monkeypatch.setattr(settings, "google_refresh_token", "x")
+    monkeypatch.setattr(app.routers.tasks, "GoogleCalendarClient", RecordingCalendar)
+    monkeypatch.setattr(app.services.task_sweep, "GoogleCalendarClient", RecordingCalendar)
+    return RecordingCalendar
+
+
+@pytest.fixture
+def make_task(session, factory):
+    async def make(event_id, on, status=TaskStatus.pending, **kw):
+        goal = await factory.goal(f"Goal {event_id}")
+        t = Task(
+            goal_id=goal.id,
+            calendar_event_id=event_id,
+            title="x",
+            scheduled_date=on,
+            start_time=time(9, 0),
+            end_time=time(10, 0),
+            duration_minutes=60,
+            status=status,
+            **kw,
+        )
+        session.add(t)
+        await session.commit()
+        return t.id
+
+    return make
+
+
+async def _status(session, task_id):
+    session.expire_all()
+    return (await session.execute(select(Task.status).where(Task.id == task_id))).scalar_one()
+
+
+# --- check off ------------------------------------------------------------------
+
+
+async def test_checking_off_completes_and_turns_the_event_green(client, calendar, make_task):
+    tid = await make_task("e1", today())
+    r = await client.post(f"/tasks/{tid}/complete")
+    assert r.status_code == 200
+    assert r.json()["status"] == "completed" and r.json()["completed_at"] is not None
+    assert calendar.patches == [("e1", 10)]
+
+
+async def test_completing_twice_is_409(client, make_task):
+    tid = await make_task("e1", today())
+    assert (await client.post(f"/tasks/{tid}/complete")).status_code == 200
+    assert (await client.post(f"/tasks/{tid}/complete")).status_code == 409
+
+
+async def test_a_past_day_cannot_be_checked_off(client, session, make_task):
+    """Checking off closes at midnight, even if the sweep has not run yet."""
+    tid = await make_task("e1", today() - timedelta(days=1))
+    assert (await client.post(f"/tasks/{tid}/complete")).status_code == 409
+    assert await _status(session, tid) == TaskStatus.pending
+
+
+async def test_missed_and_cancelled_tasks_cannot_be_completed(client, make_task):
+    missed = await make_task("e1", today(), status=TaskStatus.missed)
+    cancelled = await make_task("e2", today(), status=TaskStatus.cancelled)
+    assert (await client.post(f"/tasks/{missed}/complete")).status_code == 409
+    assert (await client.post(f"/tasks/{cancelled}/complete")).status_code == 409
+
+
+# --- midnight sweep ---------------------------------------------------------------
+
+
+async def test_sweep_marks_ended_days_missed_and_red(session, calendar, make_task):
+    yesterday = today() - timedelta(days=1)
+    stale = await make_task("old", yesterday - timedelta(days=2))  # a skipped midnight
+    late = await make_task("y", yesterday)
+    done = await make_task("d", yesterday, status=TaskStatus.completed)
+    gone = await make_task("c", yesterday, status=TaskStatus.cancelled)
+    live = await make_task("t", today())
+
+    assert await sweep_missed_tasks(session, through=yesterday) == 2
+
+    assert await _status(session, stale) == TaskStatus.missed
+    assert await _status(session, late) == TaskStatus.missed
+    assert await _status(session, done) == TaskStatus.completed
+    assert await _status(session, gone) == TaskStatus.cancelled
+    assert await _status(session, live) == TaskStatus.pending, "today has not ended"
+    assert sorted(calendar.patches) == [("old", 11), ("y", 11)]
+
+
+async def test_a_task_checked_before_midnight_survives_the_sweep(client, session, make_task):
+    tid = await make_task("e1", today())
+    assert (await client.post(f"/tasks/{tid}/complete")).status_code == 200
+    # The sweep for the day that just ended.
+    await sweep_missed_tasks(session, through=today())
+    assert await _status(session, tid) == TaskStatus.completed
+
+
+# --- removal reasons ----------------------------------------------------------------
+
+
+async def test_a_removed_task_takes_one_reason(client, make_task):
+    tid = await make_task("e1", today(), status=TaskStatus.cancelled)
+    r = await client.post(f"/tasks/{tid}/cancel-reason", json={"reason": "  moved to Friday  "})
+    assert r.status_code == 200 and r.json()["cancel_reason"] == "moved to Friday"
+
+    again = await client.post(f"/tasks/{tid}/cancel-reason", json={"reason": "changed my mind"})
+    assert again.status_code == 409
+
+
+async def test_reason_is_dropped_after_its_day(client, make_task):
+    tid = await make_task("e1", today() - timedelta(days=1), status=TaskStatus.cancelled)
+    r = await client.post(f"/tasks/{tid}/cancel-reason", json={"reason": "too late"})
+    assert r.status_code == 409
+
+
+async def test_only_removed_tasks_take_a_reason(client, make_task):
+    tid = await make_task("e1", today())
+    r = await client.post(f"/tasks/{tid}/cancel-reason", json={"reason": "x"})
+    assert r.status_code == 409
+
+
+async def test_blank_or_long_reason_is_rejected(client, make_task):
+    tid = await make_task("e1", today(), status=TaskStatus.cancelled)
+    assert (await client.post(f"/tasks/{tid}/cancel-reason", json={"reason": "   "})).status_code == 422
+    assert (await client.post(f"/tasks/{tid}/cancel-reason", json={"reason": "x" * 201})).status_code == 422
+
+
+async def test_unknown_task_is_404(client):
+    missing = "00000000-0000-0000-0000-000000000000"
+    assert (await client.post(f"/tasks/{missing}/complete")).status_code == 404

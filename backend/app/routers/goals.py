@@ -6,7 +6,7 @@ Routes:
     GET    /goals          list
     GET    /goals/{id}     read
     PATCH  /goals/{id}     update
-    DELETE /goals/{id}     delete  (be careful — what happens to its tasks?)
+    DELETE /goals/{id}     delete  (?hard=true refused with 409 while the goal has tasks)
 """
 
 from uuid import UUID
@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from app.config import settings
 from app.db.session import get_session
-from app.models import Goal, RepType, Rep
+from app.models import Goal, RepType, Rep, Task
 from app.models.goal import GoalStatus
 from app.schemas.goal import GoalCreate, GoalRead, GoalUpdate
 from app.services.google_calendar import GoogleCalendarClient
@@ -99,6 +99,20 @@ async def delete_goal(
         )
 
     if hard:
+        # Refused while the goal has tasks (decided 2026-09-24). A task's event is
+        # one Chris made in Google, and the tracker never deletes those; purging
+        # the rows instead would erase evidence. Checked first, before any
+        # calendar call, so a refusal leaves Google untouched too.
+        has_tasks = (
+            await session.execute(select(Task.id).where(Task.goal_id == goal_id).limit(1))
+        ).first()
+        if has_tasks is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This goal has tasks from your calendar and cannot be permanently "
+                "deleted. Archive it instead.",
+            )
+
         # Hard delete — permanently remove goal, rep types, and reps.
         # Collect the calendar events BEFORE the rows referencing them are gone.
         # DELETE /reps/{id} already cleans up its event; without the same here, a

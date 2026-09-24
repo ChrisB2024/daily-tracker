@@ -3,6 +3,13 @@
 Recovered from the codebase and `readme.md` on 2026-09-07. Scope and status
 confirmed by Chris; everything else is observed from code.
 
+> **Direction changed 2026-09-24.** Google Calendar is now the input and the
+> tracker the scoreboard: `[Goal] …` events become tasks, checked off at end of
+> day, shown as a points-and-lines graph. See
+> `specs/14-calendar-first-redesign.md`. This file describes the rep system as
+> shipped; its Core Flow, Capabilities and Never list are rewritten unit by unit
+> as the redesign lands. "Two-way calendar sync" left the Never list in Unit 15.
+
 ## The Problem
 
 > Chris currently re-derives "did I actually move the needle this week?" from
@@ -72,6 +79,22 @@ stops opening it.
 - Global "mark missed" sweep.
 - Delete a rep, which also deletes its calendar event.
 
+### Tasks (calendar-first redesign, since Unit 15)
+- Events on the primary Google Calendar titled `[Goal] …` are pulled in as
+  pending tasks every 15 minutes, or now via `POST /tasks/sync`.
+- `GET /tasks?date=` lists a day's tasks with their goal titles.
+- A pending task follows its event when it moves; it is cancelled when the
+  event is deleted. Finished tasks never change.
+- A goal with tasks cannot be hard-deleted (409); archive it instead.
+- Today opens with the day's tasks grouped by goal, syncing once on open, with
+  a Sync button, the last-synced time, a note naming any `[Tag]` that matched
+  no goal, and a "Removed today — why?" list.
+- Check a task off until midnight (`POST /tasks/{id}/complete`); its event
+  turns green. At 00:00 the previous day's unchecked tasks become missed and
+  turn red.
+- A task removed from the calendar takes a one-line reason until the end of
+  its day; after that the question is dropped.
+
 ### Metrics — all computed at read time
 - Daily score, week total (Mon-start), all-time weekly PR.
 - First-rep-before-noon rate for the current week.
@@ -107,7 +130,6 @@ stops opening it.
 
 ### Never
 - Multi-user, teams, sharing, or account management.
-- Two-way calendar sync. Calendar edits must never write back to the tracker.
 - Native mobile app. The responsive web dashboard on a phone is the answer.
 - Habit inference or automatic rep tagging.
 - Cross-goal rep types. A rep type belongs to exactly one goal.
