@@ -144,6 +144,12 @@ them into `Dashboard` is the intended next change, not a rewrite.
   `All day · 24h`. Its CSS is shared with `.rep` through combined selectors,
   not copied. No delete button: tasks are removed by deleting the calendar
   event.
+- **Day graph** — `DayGraph` (Unit 18), reached by clicking Today's date, not
+  from Nav. A `3d-force-graph` WebGL canvas, 70vh, lazy-loaded. Goals are
+  labelled hubs coloured `--goal-1…6` by rank of time spent; completed tasks
+  glow in their goal's colour, missed are `--missed` wireframes, pending are
+  `--pending` with no glow. WebGL reads the tokens from `:root` at runtime —
+  no colour is defined in JS. A text legend repeats every number.
 - **Nav** — a flat row of seven `.nav-button`s; the active one gets `.active`.
 - **Rep row** — `RepItem`: a status button (`○` / `✓` / `✗`, disabled unless
   pending), `[RepType]` in brackets, the time, then a delete `✕`. The bracket

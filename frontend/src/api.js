@@ -200,3 +200,11 @@ export async function giveCancelReason(taskId, reason) {
   if (!response.ok) throw new Error("Failed to save reason");
   return response.json();
 }
+
+export async function getTaskGraph(date = null) {
+  const params = new URLSearchParams();
+  if (date) params.append("date", date);
+  const response = await fetch(apiUrl(`/tasks/graph?${params}`));
+  if (!response.ok) throw new Error("Failed to fetch the day graph");
+  return response.json();
+}

@@ -37,7 +37,8 @@ unauthenticated API (see `architecture.md` Security invariant S2).
 - Third-party SDKs are reachable only from `app/services/`. A router that wants
   Google Calendar imports `GoogleCalendarClient`; it never touches
   `googleapiclient`.
-- Metric computation lives in `app/services/summary.py` and nowhere else.
+- Metric computation lives in `app/services/summary.py` (reps) and
+  `app/services/task_graph.py` (tasks) and nowhere else.
   A router may call several of its functions and assemble the response; it may
   not compute.
 - Frontend: every HTTP call lives in `frontend/src/api.js`, one exported

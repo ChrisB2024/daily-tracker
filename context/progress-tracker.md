@@ -21,14 +21,17 @@ until Unit 20 retires its UI. Its data is kept forever.
 
 ## Working On
 
-Nothing in flight. **Units 14–17 merged to `main` on 2026-09-24** at
+**Unit 18 (day graph) merged to `main` on 2026-09-24** at Chris's
+instruction. After Railway finishes deploying, refresh once — the graph calls
+the new `/tasks/graph`. Still to check on real hardware: the halo glow and a
+black background on Chris's Mac (only verified under SwiftShader).
+
+**Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
-revision `8fcad7e710dc` on deploy; Vercel ships the new Today). It was merged
-**without a local test against real Google** — the first real sync happens in
-production. Check first: the Railway log should show `Scheduled task_sync`
-and `Scheduled task_sweep`, and a `[Goal] test` event should appear on Today
-after pressing Sync. If Google calls fail, the tasks list still loads from
-saved data and nothing is cancelled.
+revision `8fcad7e710dc` on deploy; Vercel ships the new Today). **Confirmed
+working in production by Chris on 2026-09-24**: `GET /tasks` answered `[]`
+after the deploy, and after a refresh Today synced and showed tasks from his
+real calendar. This was the redesign's first contact with real Google.
 
 ## Shipped
 
@@ -198,6 +201,16 @@ saved data and nothing is cancelled.
   a reason saves and replaces its input, the not-connected note shows. Lint:
   no new errors (still the 6 pre-existing). Build passes.
 
+- **Unit 18 — Day graph** (2026-09-24, redesign branch). `GET /tasks/graph`
+  and `services/task_graph.py`; `DayGraph.jsx` on `3d-force-graph` +
+  `three-spritetext` + `three` (Chris waived the explainability rule for it).
+  Lazy-loaded; reached by clicking the date on Today. 2 new tests, 80/80.
+  Verified in headless Chromium (SwiftShader WebGL) against a seeded Postgres:
+  clusters per goal with labels, completed glowing in goal colour, missed as
+  red wireframes, pending dim, drag rotates, previous day shows the empty
+  state, back to Today works, no console errors. Build passes; no new lint
+  errors.
+
 ## In Progress
 
 Nothing.
@@ -210,7 +223,7 @@ Nothing.
 15. ~~Pull tasks from Google Calendar~~ — shipped 2026-09-24
 16. ~~Check off, 00:00 sweep, removal reasons~~ — shipped 2026-09-24
 17. ~~Today becomes the daily task checklist~~ — shipped 2026-09-24
-18. Day graph — 3D points-and-lines, Lobe Atlas look
+18. ~~Day graph~~ — shipped and merged 2026-09-24
 19. Week graph + goal ranking by time spent
 20. Retire Schedule, rep types, chains and the debrief; rep history stays read-only
 
@@ -337,6 +350,10 @@ Decisions. None open.
   the spec asked for a last-synced time, and the backend does not record
   when the 15-minute job ran; syncing on open makes the time real and the
   list current. · Traded away: one Google call per Today load.
+- **`3d-force-graph` for the graphs** (2026-09-24, Chris) — "it's just a
+  tracker project"; CLAUDE.md's "explainable by Chris" rule is waived for this
+  dependency. · Traded away: a ~1.4 MB lazy chunk and a force layout nobody
+  has to understand.
 - **Poll the calendar, don't subscribe to push** (2026-09-24, proposed) — a
   15-minute job plus a sync button. Google watch channels need a public
   webhook, renewals and a verified domain; polling is one function Chris can
@@ -418,6 +435,19 @@ Decisions. None open.
   async clients. · Traded away: a thread per external call.
 
 ## Model Corrections
+
+- Expected three.js's bloom pass to give the Lobe Atlas glow → in headless
+  Chromium it lifted the entire canvas to grey, with or without an
+  `OutputPass` → replaced with additive halo sprites, which only add light;
+  now assume post-processing may render differently across GPUs and prefer
+  effects built from scene objects.
+
+- Expected a merge to `main` to switch the app over in one step → Vercel
+  finished the frontend minutes before Railway had built the image and run
+  the migration, so the new Today called `/tasks` on the old backend and
+  showed "Failed to fetch tasks" until a refresh → now assume the frontend is
+  live first after any merge that adds an endpoint, and tell Chris to refresh
+  once Railway's deploy completes (check `GET /<new endpoint>` directly).
 
 - Expected the debrief payload to be JSON-serialisable → its `goals` dict was
   keyed by UUID, so `json.dumps` raised; nothing had noticed because only
@@ -551,8 +581,7 @@ in `architecture.md`.
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
 first — it supersedes the notes below on direction. Units 14–16 are shipped on
-`main` (see Working On). Next action: confirm the first production sync,
-then Unit 18 (day graph).
+`main`, Unit 18 included. Next action: Unit 19 (week view by goal).
 
 **Local test setup in a cloud container:** `conftest.py` connects as role
 `chrisilias` with no password. There, start Postgres, create that role with a

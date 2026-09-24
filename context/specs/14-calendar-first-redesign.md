@@ -185,7 +185,7 @@ named in a note so a typo on the calendar is visible. Removed tasks without a
 reason show a one-line input whose placeholder says anyone with the link can
 read it.
 
-### Unit 18 — Day graph
+### Unit 18 — Day graph — shipped 2026-09-24
 
 **Builds:** clicking a day opens a screen where each goal is a labelled cluster
 and each task is a glowing point joined by a line to its goal; tasks that share
@@ -209,6 +209,19 @@ drag angle and projected with perspective each frame. Roughly 200 lines Chris
 can read top to bottom, no dependency. The alternative is `3d-force-graph`
 (three.js), which gives this look almost for free but is a large dependency
 whose physics he would not be able to explain. Decide at the start of the unit.
+
+*Decided 2026-09-24 (Chris):* **`3d-force-graph`.** "It's just a tracker
+project" — the explainability rule is waived for this dependency.
+
+*As built:* `GET /tasks/graph?date=` (`services/task_graph.py`) returns goal
+and task nodes plus task→goal links; goal nodes carry minutes completed and
+planned, sorted most-time-first. `DayGraph.jsx` is lazy-loaded (three.js is
+~1.4 MB; Today's bundle grew 7 KB). Entry: the date on Today; ‹ › move
+between days. Glow is an additive-blended halo sprite per node — a bloom
+post-processing pass washed the whole canvas grey and was dropped. Goal colours
+are six new `--goal-*` tokens read from `:root` at runtime. A text legend under
+the canvas repeats the numbers exactly. No inter-goal links and no decorative
+"dust" points: every point on screen is a real task.
 
 ### Unit 19 — Week view by goal
 
