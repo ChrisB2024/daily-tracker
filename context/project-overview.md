@@ -51,15 +51,18 @@ stops opening it.
 
 ## Core Flow
 
-1. Open the **Goals** view, create a goal (title, optional description, optional target date).
-2. Expand that goal, add 3–5 rep types — each needs a name, a one-line criterion, and a duration. Optionally a daily floor, a weekly target, an emoji, and the first-rep flag.
-3. Open the **Schedule** view, pick the goal, pick a rep type, pick a date and time. Optionally check "recurring" to fan it out over the next N days.
-4. Each created rep POSTs to `/reps` (or `/reps/bulk`), which inserts the row and then inserts a gray (`colorId: 8`) Google Calendar event titled `[<RepType>] <Goal title>`, storing the returned event id on the rep.
-5. Next morning, open **Today**. See daily score, week total, weekly PR, first-rep-before-noon rate, the month heatmap, and today's reps grouped by goal.
-6. Do the work, press the ○ on the rep. Status goes `completed`, `completed_at` is stamped in `settings.tz`, and the calendar event patches to green (`colorId: 10`).
-7. Unfinished reps are swept to `missed` and patched red (`colorId: 11`) — currently only by pressing **Run end-of-day sweep** on the dashboard, because no automatic 23:59 job exists.
-8. Sunday, the scheduled job aggregates the week, sends it to Claude, converts the text to MP3 via ElevenLabs, and emails both to Chris's own Gmail address.
-9. **Debrief** view regenerates the same summary on demand and plays or downloads the audio.
+Since the calendar-first redesign (Units 14–20, 2026-09-24):
+
+1. Open **Goals** and create a goal. Its card shows the calendar tag to use, e.g. `[Hitwin]`.
+2. Plan the day in Google Calendar: events titled `[Goal title] what you're doing` on the primary calendar.
+3. Open **Today**. It syncs once on open (and every 15 minutes in the background) and lists the day's tasks grouped by goal.
+4. At the end of the day, tick what you did. The task goes `completed` and its calendar event turns green (`colorId: 10`).
+5. At 00:00 the previous day's unticked tasks become `missed` and turn red (`colorId: 11`).
+6. A task whose event was deleted shows under "Removed today — why?" and takes a one-line reason until midnight.
+7. Click the date on Today for the **graph**: goals as clusters, tasks as points. Switch to **Week** for Monday–Sunday and the goal ranking by time completed.
+
+The original rep flow (rep types, Schedule, chains, Sunday debrief) is retired;
+its history stays in the database and in History, Analytics and Week.
 
 ## Capabilities
 
@@ -69,10 +72,8 @@ stops opening it.
 - Create and list rep types under a goal; read, patch, archive by rep type id.
 - Archiving a rep type keeps every rep it produced.
 
-### Scheduling
-- Schedule one rep, or bulk-schedule N consecutive days from one form.
-- `duration_minutes` is copied from the rep type at creation, not taken from the client.
-- Every create asserts `rep_type.goal_id == payload.goal_id` before inserting.
+### Scheduling — retired from the UI in Unit 20
+- The API still accepts `POST /reps` and `/reps/bulk`; nothing in the UI calls them.
 
 ### Tracking
 - Complete a rep (409 if it is not `pending`).
@@ -104,9 +105,9 @@ stops opening it.
 - Per-rep-type completion analytics, sorted by completion percentage.
 - Week view: all seven days grouped by goal, with complete and delete inline.
 
-### Debrief
-- On-demand: text plus base64 MP3 plus week stats.
-- Scheduled: Sunday email with MP3 attachment.
+### Debrief — retired in Unit 20
+- No Sunday email and no Debrief tab. `GET /debrief` still exists; past
+  debrief numbers remain visible in History.
 
 ## Boundaries
 

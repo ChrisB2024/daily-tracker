@@ -5,36 +5,25 @@ import {
   updateGoal,
   deleteGoal,
   deleteGoalHard,
-  getRepTypes,
-  createRepType,
-  updateRepType,
-  deleteRepType,
 } from "../api";
+
+// Goals only. Rep types were managed here until Unit 20 of the calendar-first
+// redesign; tasks now tag straight to a goal by its title, so each card shows
+// the [Title] to use on the calendar.
 
 export default function GoalsManagement({ onBack }) {
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showNewGoalForm, setShowNewGoalForm] = useState(false);
-  const [expandedGoal, setExpandedGoal] = useState(null);
-  const [repTypes, setRepTypes] = useState({});
   const [formError, setFormError] = useState(null);
   const [editingGoalId, setEditingGoalId] = useState(null);
   const [goalEditForm, setGoalEditForm] = useState({});
-  const [editingRepTypeId, setEditingRepTypeId] = useState(null);
-  const [repTypeEditForm, setRepTypeEditForm] = useState({});
   const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     loadGoals();
   }, []);
-
-  // Showing or hiding archived items changes what the API returns, so the open
-  // goal's rep types have to be refetched rather than filtered client-side.
-  useEffect(() => {
-    if (expandedGoal) loadRepTypes(expandedGoal, { force: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showArchived]);
 
   async function loadGoals() {
     try {
@@ -46,16 +35,6 @@ export default function GoalsManagement({ onBack }) {
       setError(err.message);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function loadRepTypes(goalId, { force = false } = {}) {
-    if (!force && repTypes[goalId]) return;
-    try {
-      const data = await getRepTypes(goalId, showArchived);
-      setRepTypes((prev) => ({ ...prev, [goalId]: data }));
-    } catch (err) {
-      alert("Failed to load rep types: " + err.message);
     }
   }
 
@@ -132,73 +111,12 @@ export default function GoalsManagement({ onBack }) {
     setGoalEditForm({});
   }
 
-  function startEditRepType(repType) {
-    setEditingRepTypeId(repType.id);
-    setRepTypeEditForm({
-      name: repType.name,
-      criterion: repType.criterion,
-      duration_minutes: repType.duration_minutes,
-      daily_floor: repType.daily_floor ?? null,
-      weekly_target: repType.weekly_target ?? null,
-      is_first_rep: repType.is_first_rep || false,
-    });
-  }
-
-  async function saveRepType(repTypeId, goalId) {
-    try {
-      const data = { ...repTypeEditForm };
-      // Convert empty strings to null for optional fields
-      if (data.criterion === "") data.criterion = null;
-      await updateRepType(repTypeId, data);
-      setEditingRepTypeId(null);
-      loadRepTypes(goalId, { force: true });
-    } catch (err) {
-      alert("Failed to update rep type: " + err.message);
-    }
-  }
-
-  function cancelEditRepType() {
-    setEditingRepTypeId(null);
-    setRepTypeEditForm({});
-  }
-
-
-  async function handleCreateRepType(goalId, e) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const name = form.name.value;
-    const criterion = form.criterion.value;
-    const duration = parseInt(form.duration_minutes.value);
-
-    try {
-      await createRepType(goalId, {
-        name,
-        criterion,
-        duration_minutes: duration,
-      });
-      form.reset();
-      loadRepTypes(goalId, { force: true });
-    } catch (err) {
-      alert("Failed to create rep type: " + err.message);
-    }
-  }
-
-  async function handleDeleteRepType(repTypeId, goalId) {
-    if (!confirm("Archive this rep type?")) return;
-    try {
-      await deleteRepType(repTypeId);
-      loadRepTypes(goalId, { force: true });
-    } catch (err) {
-      alert("Failed to delete rep type: " + err.message);
-    }
-  }
-
   if (loading) return <div className="loading">Loading goals...</div>;
   if (error) return <div className="error">Error: {error}</div>;
 
   return (
     <div className="management">
-      <h2>Goals & Rep Types</h2>
+      <h2>Goals</h2>
 
       {showNewGoalForm && (
         <form onSubmit={handleCreateGoal} className="form">
@@ -308,6 +226,9 @@ export default function GoalsManagement({ onBack }) {
                 <>
                   <div>
                     <h3>{goal.title}</h3>
+                    <p className="goal-tag" title="Start a calendar event with this to tag it">
+                      [{goal.title}]
+                    </p>
                     {goal.description && <p className="goal-desc">{goal.description}</p>}
                     {goal.target_date && (
                       <p className="goal-date">Target: {goal.target_date}</p>
@@ -323,15 +244,6 @@ export default function GoalsManagement({ onBack }) {
                       title="Edit goal"
                     >
                       ✎
-                    </button>
-                    <button
-                      onClick={() => {
-                        setExpandedGoal(expandedGoal === goal.id ? null : goal.id);
-                        loadRepTypes(goal.id);
-                      }}
-                      className="btn-secondary"
-                    >
-                      {expandedGoal === goal.id ? "Hide" : "Show"} Reps
                     </button>
                     <button
                       onClick={() => handleArchiveGoal(goal.id)}
@@ -352,145 +264,6 @@ export default function GoalsManagement({ onBack }) {
               )}
             </div>
 
-            {expandedGoal === goal.id && (
-              <div className="goal-reps">
-                <h4>Rep Types</h4>
-                {repTypes[goal.id]?.length > 0 ? (
-                  <ul className="rep-types-list">
-                    {repTypes[goal.id].map((repType) => (
-                      <li key={repType.id} className="rep-type-item">
-                        {editingRepTypeId === repType.id ? (
-                          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                            <input
-                              type="text"
-                              value={repTypeEditForm.name}
-                              onChange={(e) => setRepTypeEditForm({ ...repTypeEditForm, name: e.target.value })}
-                              placeholder="Rep type name"
-                              style={{ padding: "0.4rem" }}
-                            />
-                            <input
-                              type="text"
-                              value={repTypeEditForm.criterion || ""}
-                              onChange={(e) => setRepTypeEditForm({ ...repTypeEditForm, criterion: e.target.value === "" ? null : e.target.value })}
-                              placeholder="Criterion"
-                              style={{ padding: "0.4rem" }}
-                            />
-                            <input
-                              type="number"
-                              value={repTypeEditForm.duration_minutes}
-                              onChange={(e) => setRepTypeEditForm({ ...repTypeEditForm, duration_minutes: parseInt(e.target.value) })}
-                              placeholder="Duration (min)"
-                              min="15"
-                              max="90"
-                              style={{ padding: "0.4rem" }}
-                            />
-                            <input
-                              type="number"
-                              value={repTypeEditForm.daily_floor}
-                              onChange={(e) => setRepTypeEditForm({ ...repTypeEditForm, daily_floor: e.target.value === "" ? null : parseInt(e.target.value) })}
-                              placeholder="Daily floor (optional)"
-                              style={{ padding: "0.4rem" }}
-                            />
-                            <input
-                              type="number"
-                              value={repTypeEditForm.weekly_target}
-                              onChange={(e) => setRepTypeEditForm({ ...repTypeEditForm, weekly_target: e.target.value === "" ? null : parseInt(e.target.value) })}
-                              placeholder="Weekly target (optional)"
-                              style={{ padding: "0.4rem" }}
-                            />
-                            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                              <input
-                                type="checkbox"
-                                checked={repTypeEditForm.is_first_rep}
-                                onChange={(e) => setRepTypeEditForm({ ...repTypeEditForm, is_first_rep: e.target.checked })}
-                              />
-                              First rep (before noon)
-                            </label>
-                            <div style={{ display: "flex", gap: "0.5rem" }}>
-                              <button
-                                onClick={() => saveRepType(repType.id, goal.id)}
-                                className="btn-primary"
-                                style={{ fontSize: "0.85rem", padding: "0.3rem 0.6rem" }}
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={cancelEditRepType}
-                                className="btn-secondary"
-                                style={{ fontSize: "0.85rem", padding: "0.3rem 0.6rem" }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div>
-                              <strong>{repType.name}</strong>
-                              {repType.status === "archived" && (
-                                <span className="archived-tag">archived</span>
-                              )}
-                              <p className="criterion">{repType.criterion}</p>
-                              <p className="duration">{repType.duration_minutes} min</p>
-                              {repType.daily_floor && <p className="duration">Daily: {repType.daily_floor}</p>}
-                              {repType.weekly_target && <p className="duration">Weekly: {repType.weekly_target}</p>}
-                              {repType.is_first_rep && <p className="duration" style={{ color: "var(--completed)" }}>★ First rep</p>}
-                            </div>
-                            <div style={{ display: "flex", gap: "0.25rem" }}>
-                              <button
-                                onClick={() => startEditRepType(repType)}
-                                className="btn-secondary"
-                                title="Edit rep type"
-                                style={{ padding: "0.25rem 0.5rem", fontSize: "0.9rem" }}
-                              >
-                                ✎
-                              </button>
-                              {repType.status !== "archived" && (
-                                <button
-                                  onClick={() =>
-                                    handleDeleteRepType(repType.id, goal.id)
-                                  }
-                                  className="btn-danger-small"
-                                >
-                                  ×
-                                </button>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="empty">No rep types yet.</p>
-                )}
-
-                <form onSubmit={(e) => handleCreateRepType(goal.id, e)} className="rep-type-form">
-                  <h4>New Rep Type</h4>
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Rep type name (e.g., Outbound rep)"
-                    required
-                  />
-                  <input
-                    type="text"
-                    name="criterion"
-                    placeholder="Done/not-done criterion (one line)"
-                    required
-                  />
-                  <input
-                    type="number"
-                    name="duration_minutes"
-                    placeholder="Duration (minutes)"
-                    min="15"
-                    max="90"
-                    required
-                  />
-                  <button type="submit">Add Rep Type</button>
-                </form>
-              </div>
-            )}
           </li>
         ))}
       </ul>

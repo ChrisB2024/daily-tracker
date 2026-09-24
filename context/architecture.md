@@ -20,7 +20,7 @@ code consistently follows); each one that the code currently breaks is listed in
 | LLM | `anthropic` SDK, model `claude-opus-4-8` | Generates the weekly debrief prose from aggregated counts. |
 | TTS | `elevenlabs` SDK, `eleven_turbo_v2_5`, voice `21m00Tcm4TlvDq8ikWAM` | Audio debrief. |
 | Email | `smtplib` + Gmail SMTP (app password) | Stopgap delivery channel for the Sunday debrief. |
-| Scheduler | APScheduler `AsyncIOScheduler`, started in FastAPI's `startup` hook | In-process, one job. No external cron, no worker process. |
+| Scheduler | APScheduler `AsyncIOScheduler`, started in FastAPI's `startup` hook | In-process, two jobs since Unit 20: the 00:00 task sweep and the 15-minute calendar sync. No external cron, no worker process. |
 | Deploy | Docker on Railway; frontend on Vercel, both auto-deploying from `main` | `CMD` runs `alembic upgrade head && uvicorn` on port 8000 — a failed migration stops the container rather than booting against the old schema, which the README and the Vite dev proxy now match. |
 
 ## Ownership Map
@@ -64,7 +64,8 @@ remains the source of what was *done*.
 small `select()` queries over `reps` → aggregated in Python → Pydantic response
 model → JSON. Nothing is cached, nothing is precomputed, no metric is stored.
 
-**The debrief path.** Sunday job (or `GET /debrief`) → aggregate the week from
+**The debrief path** (retired from the schedule in Unit 20; `GET /debrief`
+still runs it on request). `GET /debrief` → aggregate the week from
 `reps` → prompt text containing week counts **and goal titles** → Anthropic →
 prose → ElevenLabs → MP3 bytes → Gmail SMTP → Chris's inbox. Nothing on this
 path is persisted.
@@ -187,18 +188,19 @@ Non-Negotiables from `readme.md`, restated as checkable rules.
 3. **Missed reps stay visible as missed.** Never deleted, never hidden, never
    reclassified. Erasing a missed rep erases the evidence the system exists to
    collect.
-4. **Chains are independent per rep type, and are shown to the user.** Breaking
-   one must never break another, and a chain the user is holding must be legible
-   on the dashboard.
+4. **Retired 2026-09-24 (Unit 20).** Was: "Chains are independent per rep
+   type, and are shown to the user." Chris dropped chains with the rep UI; they
+   are still computed by `/summary` but nothing renders them.
 5. **The calendar is the source of what was planned; the tracker is the source
    of what was done.** (Rewritten 2026-09-24, Unit 15 — previously "a mirror,
    never a source".) Reading Google may create a pending task, reshape a
    pending task, or cancel a pending task whose event was deleted. **Nothing
    read from Google may ever change a completed, missed or cancelled task, or
    any rep.**
-6. **The Sunday debrief reports findings, not encouragement.** Built from rep
-   data only, never self-report. No motivational language, no praise, no emoji —
-   chains, numbers and patterns.
+6. **The debrief reports findings, not encouragement** — dormant since Unit 20:
+   the Sunday email is off and the tab is gone, but `GET /debrief` still
+   generates one on request, and the rule holds for it. Built from rep data
+   only; no motivational language, no praise, no emoji.
 7. **Nothing irreversible happens without confirmation**, and every view that
    renders data renders a real empty, loading and error state.
 

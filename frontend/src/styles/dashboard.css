@@ -429,6 +429,7 @@ h3 {
 /* Navigation */
 .nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 2.5rem;
   border-bottom: 1px solid var(--border);
@@ -446,6 +447,18 @@ h3 {
   border-bottom: 2px solid transparent;
   transition: all 0.2s;
   font-weight: 500;
+}
+
+/* Phones: five tabs fit on one row at 360px+ with tighter padding; below that
+   the row wraps rather than scrolling the whole page sideways. */
+@media (max-width: 767px) {
+  .nav {
+    gap: 0.25rem;
+  }
+
+  .nav-button {
+    padding: 0.5rem 0.4rem;
+  }
 }
 
 .nav-button:hover {
@@ -1898,4 +1911,12 @@ h3 {
   font-variant-numeric: tabular-nums;
   width: 1.25rem;
   text-align: right;
+}
+
+/* The calendar tag on a goal card (Unit 20): what to type in Google Calendar. */
+.goal-tag {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.85rem;
 }
