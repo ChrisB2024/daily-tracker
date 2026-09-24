@@ -29,6 +29,9 @@ black background on Chris's Mac — **confirmed by Chris 2026-09-24**.
 **Unit 19 (week view) merged to `main` on 2026-09-24** at Chris's
 instruction.
 
+**Unit 20 (retire the rep UI) shipped on the redesign branch, not yet
+merged.** With it, Build Plan 2 is complete.
+
 **Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
 revision `8fcad7e710dc` on deploy; Vercel ships the new Today). **Confirmed
@@ -223,6 +226,15 @@ real calendar. This was the redesign's first contact with real Google.
   current week, previous week empty state, switching back to Day, no console
   errors. Build passes; no new lint errors.
 
+- **Unit 20 — Retire the rep UI** (2026-09-24, redesign branch). Schedule and
+  Debrief tabs gone; Week and Analytics kept by Chris's choice. Today is only
+  the date link and `TodayTasks`. Rep-type management removed from Goals, which
+  now shows each goal's `[Title]` tag. Scheduler down to `task_sweep` and
+  `task_sync` — the 23:59 rep sweep and Sunday debrief no longer run. Ten
+  unused components deleted. Nav fits one row down to 360px (no horizontal
+  scroll at 360/390/420/1280). 82/82 tests, `smoke.py` 17/17, build passes,
+  lint down to 3 pre-existing errors (two old ones lived in deleted files).
+
 ## In Progress
 
 Nothing.
@@ -237,7 +249,7 @@ Nothing.
 17. ~~Today becomes the daily task checklist~~ — shipped 2026-09-24
 18. ~~Day graph~~ — shipped and merged 2026-09-24
 19. ~~Week view by goal~~ — shipped and merged 2026-09-24
-20. Retire Schedule, rep types, chains and the debrief; rep history stays read-only
+20. ~~Retire the rep UI~~ — shipped 2026-09-24 (branch)
 
 **Build Plan 1** (all shipped) — the build plan is `context/specs/00-build-plan.md` — 13 units, approved
 2026-09-07. Start with **Unit 01**. In short:
@@ -534,11 +546,19 @@ Decisions. None open.
 
 ## Known Debt
 
-- **Today scrolls sideways on a phone** (found 2026-09-24 in Unit 17,
-  pre-existing). At 420px the page is 691px wide: the seven-button nav row and
-  `.dashboard-main` overflow. Verified identical with Unit 17's changes
-  stashed, so not caused by it. Unit 20 drops three nav buttons, which may
-  mostly fix it; check then.
+- **Future pending reps stay pending forever** (Unit 20, Chris's call). The
+  23:59 rep sweep no longer runs, so any rep scheduled for a future day stays
+  gray on the calendar and pending in the database. Delete the events in
+  Google by hand if they clutter; the rows stay (never delete rep rows).
+- **History draws NaN into its SVG when there is no rep history** (found in
+  Unit 20 on an empty local database; History was not changed). Production
+  has rep history, so it should not show there.
+- **`api.js` still exports the rep endpoints** (`createRep`, `markMissed`,
+  debrief calls, rep-type CRUD) that no component imports since Unit 20.
+  Harmless; remove when convenient.
+- **`/summary` runs its full rep aggregation only for `today_date`.** Today
+  now uses nothing else from it. Cheap enough at one user; a lighter endpoint
+  would do.
 
 - **Physical Exercise runs paired rep types per weekday, not duplicates.** Two
   "push day", two "pull day" and two "Legs day", all created 2026-07-02, split
@@ -593,7 +613,9 @@ in `architecture.md`.
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
 first — it supersedes the notes below on direction. Units 14–16 are shipped on
-`main`, Units 18 and 19 included. Next action: Unit 20 (retire the rep UI).
+`main`, Units 18 and 19 included; Unit 20 is on the branch. Next action:
+merge Unit 20 when Chris says so. Build Plan 2 is then complete; the open
+items are the "Not units yet" list in the spec and the Known Debt below.
 
 **Local test setup in a cloud container:** `conftest.py` connects as role
 `chrisilias` with no password. There, start Postgres, create that role with a

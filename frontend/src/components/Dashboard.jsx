@@ -7,19 +7,10 @@ function parseISODate(dateString) {
   const [year, month, day] = dateString.split("-").map(Number);
   return new Date(year, month - 1, day);
 }
-import { getSummary, markMissed as markMissedApi } from "../api";
+import { getSummary } from "../api";
 import Nav from "./Nav";
-import StatsHeader from "./StatsHeader";
-import FirstRepStrip from "./FirstRepStrip";
-import ChainsList from "./ChainsList";
-import ChainsVisualization from "./ChainsVisualization";
-import TodayReps from "./TodayReps";
 import TodayTasks from "./TodayTasks";
-import RhythmChart from "./RhythmChart";
-import GoalProgressionsVisualization from "./GoalProgressionsVisualization";
 import GoalsManagement from "./GoalsManagement";
-import RepScheduling from "./RepScheduling";
-import Debrief from "./Debrief";
 import History from "./History";
 import Analytics from "./Analytics";
 import WeekView from "./WeekView";
@@ -41,34 +32,19 @@ export default function Dashboard() {
     setView("day-graph");
   }
 
+  // Today needs only the server's date (settings.tz) from /summary now that the
+  // rep widgets are gone (Unit 20). Refetched each time Today is opened, so the
+  // date rolls over at midnight; the previous date stays up until it arrives.
   useEffect(() => {
-    if (view === "today") {
-      fetchData();
-    }
+    if (view !== "today") return;
+    getSummary()
+      .then((summary) => {
+        setData(summary);
+        setError(null);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   }, [view]);
-
-  async function fetchData() {
-    try {
-      setLoading(true);
-      const summary = await getSummary();
-      setData(summary);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleMarkMissed() {
-    try {
-      await markMissedApi();
-      fetchData();
-      alert("Marked missed reps as red in calendar");
-    } catch (err) {
-      alert("Failed: " + err.message);
-    }
-  }
 
   return (
     <div className="dashboard">
@@ -99,47 +75,13 @@ export default function Dashboard() {
                 </button>
 
                 <TodayTasks />
-
-                <StatsHeader
-                  dailyScore={data.daily_score}
-                  weekTotal={data.week_total}
-                  weeklyPr={data.weekly_pr}
-                />
-
-                <FirstRepStrip rates={data.first_rep_rates} />
-
-                <ChainsList chains={data.chains} />
-
-                <RhythmChart rhythm30day={data.rhythm_30day} />
-
-                <TodayReps
-                  goals={data.goals_with_reps}
-                  onRepComplete={fetchData}
-                  calendarEnabled={data.calendar_enabled}
-                />
               </div>
-
-              {(data.chains.some((c) => c.current_chain > 0) ||
-                data.goal_progressions.length > 0) && (
-                <div className="dashboard-sidebar">
-                  <ChainsVisualization chains={data.chains} />
-                  <GoalProgressionsVisualization goalProgressions={data.goal_progressions} />
-                </div>
-              )}
-
-              <footer className="dashboard-footer">
-                <button onClick={handleMarkMissed}>Run end-of-day sweep</button>
-              </footer>
             </div>
           )}
         </>
       )}
 
       {view === "goals" && <GoalsManagement />}
-
-      {view === "schedule" && <RepScheduling />}
-
-      {view === "debrief" && <Debrief />}
 
       {view === "history" && <History />}
 

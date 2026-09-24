@@ -135,10 +135,8 @@ them into `Dashboard` is the intended next change, not a rewrite.
   of seven views. `Dashboard.jsx` is the only stateful container; view selection
   is `useState`, not a router, so there are no deep links and the browser back
   button does not move between views.
-- **Today** — `.dashboard-grid` with `.dashboard-main` (date, `TodayTasks`,
-  `StatsHeader`, `FirstRepStrip`, `ChainsList`, `RhythmChart`, `TodayReps`), a conditional
-  `.dashboard-sidebar` for goal progressions, and `.dashboard-footer` holding
-  the end-of-day sweep button.
+- **Today** — since Unit 20, `.dashboard-main` holds only the date (a button
+  opening the graph) and `TodayTasks`. Every rep widget was removed.
 - **Task row** — `TaskItem` (since Unit 17): the same `○` / `✓` / `✗` status
   button as a rep row, the task title, then `9:00 AM–10:30 AM · 1h30` or
   `All day · 24h`. Its CSS is shared with `.rep` through combined selectors,
@@ -152,7 +150,9 @@ them into `Dashboard` is the intended next change, not a rewrite.
   glow in their goal's colour, missed are `--missed` wireframes, pending are
   `--pending` with no glow. WebGL reads the tokens from `:root` at runtime —
   no colour is defined in JS. A text legend repeats every number.
-- **Nav** — a flat row of seven `.nav-button`s; the active one gets `.active`.
+- **Nav** — a flat row of five `.nav-button`s (Today, Goals, History,
+  Analytics, Week); the active one gets `.active`. Below 768px the buttons
+  tighten so the row fits at 360px, and it wraps rather than scrolling the page.
 - **Rep row** — `RepItem`: a status button (`○` / `✓` / `✗`, disabled unless
   pending), `[RepType]` in brackets, the time, then a delete `✕`. The bracket
   prefix matches the calendar event title format on purpose.

@@ -14,18 +14,6 @@ export default function Nav({ currentView, onViewChange }) {
         Goals
       </button>
       <button
-        className={`nav-button ${currentView === "schedule" ? "active" : ""}`}
-        onClick={() => onViewChange("schedule")}
-      >
-        Schedule
-      </button>
-      <button
-        className={`nav-button ${currentView === "debrief" ? "active" : ""}`}
-        onClick={() => onViewChange("debrief")}
-      >
-        Debrief
-      </button>
-      <button
         className={`nav-button ${currentView === "history" ? "active" : ""}`}
         onClick={() => onViewChange("history")}
       >

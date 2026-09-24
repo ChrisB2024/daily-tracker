@@ -239,7 +239,7 @@ colour across every day and week — found while testing, when ranking-based
 colours made Hitwin white in one view and amber in the next. With more than
 six goals, colours repeat.
 
-### Unit 20 — Retire the rep UI
+### Unit 20 — Retire the rep UI — shipped 2026-09-24
 
 **Builds:** Schedule view and rep-type management removed from the nav; goals
 management stays (tasks need goals). History keeps rendering past reps
@@ -247,6 +247,17 @@ read-only. No rep row is touched and no rep column is dropped.
 Chains leave Today, the Debrief view leaves the nav, and the Sunday debrief
 job and 23:59 rep sweep stop being registered.
 **Not in this unit:** deleting rep code paths the history still reads.
+
+*As built, with Chris's answers of 2026-09-24:* Schedule and Debrief left the
+nav; **Week (the old rep week list) and Analytics stay** at his choice, so the
+nav is Today · Goals · History · Analytics · Week. Today is the date link and
+the task list only — stats, first-rep rate, chains, heatmap, today's reps,
+progressions and the sweep button all removed. Goals lost rep-type management
+and shows each goal's `[Title]` tag. The scheduler registers only the task
+sweep and task sync. **Future pending reps are left as they are** (Chris: "turn
+the sweep off anyway") — they stay pending and gray; no rep row was touched.
+Ten now-unused components were deleted (recoverable from git). The nav fits
+one row down to 360px, which fixed the phone sideways-scroll debt.
 
 ## Not units yet
 
