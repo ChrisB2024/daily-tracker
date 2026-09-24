@@ -86,6 +86,11 @@ stops opening it.
 - A pending task follows its event when it moves; it is cancelled when the
   event is deleted. Finished tasks never change.
 - A goal with tasks cannot be hard-deleted (409); archive it instead.
+- Check a task off until midnight (`POST /tasks/{id}/complete`); its event
+  turns green. At 00:00 the previous day's unchecked tasks become missed and
+  turn red.
+- A task removed from the calendar takes a one-line reason until the end of
+  its day; after that the question is dropped.
 
 ### Metrics — all computed at read time
 - Daily score, week total (Mon-start), all-time weekly PR.

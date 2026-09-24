@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from app.models.task import TaskStatus
 
 # No TaskCreate and no TaskUpdate: tasks are created and reshaped only by the
-# calendar sync, and their status moves only through dedicated endpoints
-# (Unit 16). The client has nothing it may set yet.
+# calendar sync, and their status moves only through dedicated endpoints. The
+# one thing the client may write is a removal reason.
+
+
+class TaskCancelReason(BaseModel):
+    # One line, not a journal: the API is unauthenticated (architecture.md S2).
+    # Stripped before the length check, so "   " is rejected rather than stored as "".
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
 
 class TaskRead(BaseModel):

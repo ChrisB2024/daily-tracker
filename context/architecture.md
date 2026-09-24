@@ -113,7 +113,7 @@ write access.
 | `RepType` | `POST /goals/{goal_id}/rep-types` — 404 if goal missing | `PATCH /rep-types/{id}` | `DELETE` → `status = archived` only. No hard delete. | Reps preserved by design (`cascade="save-update, merge"`, no delete cascade). Archiving now actually retires the type: it drops out of `get_chains` (Unit 02) and out of `GET /goals/{id}/rep-types` unless `include_archived=true` (fixed 2026-09-07). `get_rep_type_analytics` still does not filter on status. |
 | `Rep` | `POST /reps` or `POST /reps/bulk` — both assert the rep type belongs to the goal, and copy `duration_minutes` from the rep type | `PATCH /reps/{id}` (date, time, duration, notes — **does not re-sync the calendar event**) · `POST /reps/{id}/complete` · `POST /reps/mark-missed` | `DELETE /reps/{id}` — hard delete, plus calendar event deletion | Calendar event deleted with the rep. A `PATCH` that moves the rep leaves the event at the old time forever. |
 | Calendar event | Created alongside a rep; `rep.calendar_event_id` stores the id | `patch_color` on complete (10) and miss (11) | Deleted with the rep | Orphaned whenever `create_event` returns `None` (its exception handler swallows the failure), or whenever the rep is rescheduled. |
-| `Task` | The calendar sync, from a `[Goal]`-tagged event on the primary calendar | The sync, **only while pending** — title, goal, date, times, duration follow the event | `cancelled` when its event is deleted while pending; `completed` / `missed` land in Unit 16. Never deleted. | FK to `goals` with no cascade. `DELETE /goals/{id}?hard=true` returns 409 while the goal has any task (decided 2026-09-24), before any calendar call — so the tracker never deletes an event Chris made. |
+| `Task` | The calendar sync, from a `[Goal]`-tagged event on the primary calendar | The sync, **only while pending** — title, goal, date, times, duration follow the event · `cancel_reason` via `POST /tasks/{id}/cancel-reason` | `completed` (event green), `missed` at 00:00 (event red), or `cancelled` when its event is deleted. Never deleted. | FK to `goals` with no cascade. `DELETE /goals/{id}?hard=true` returns 409 while the goal has any task (decided 2026-09-24), before any calendar call — so the tracker never deletes an event Chris made. |
 | `WeeklySummary` | Generating a debrief, on demand or by the Sunday job | Upserted per week; `delivered_at` stamped when the email sends | Never deleted | Independent snapshot — holds no FK, so archiving a goal does not alter past weeks. Stats only: the generated prose is **not** stored, so S2 holds unchanged. |
 
 ## State Machines
@@ -127,10 +127,14 @@ Both are terminal. Enforced by three things together: `RepUpdate` omits
 - Unreachable by design: `completed → missed`, `missed → completed`, anything
   `→ pending`. There is deliberately no un-complete and no un-miss.
 
-**Task:** `pending --event deleted in Google (sync)--> cancelled` (Unit 15) ·
-`pending → completed` and `pending → missed` land in Unit 16. All terminal. No
-schema accepts `status`, and the sync only ever writes to pending tasks. A
-pending task whose event lost its `[Goal]` prefix is left pending.
+**Task:** `pending --POST /tasks/{id}/complete, before midnight--> completed` ·
+`pending --00:00 task_sweep--> missed` · `pending --event deleted in Google
+(sync)--> cancelled`. All terminal. Enforced by: no schema accepts `status`;
+`complete` returns 409 unless pending and unless the task's day is today or
+later; the sweep's bulk `UPDATE` filters `status == pending`; the sync only
+writes pending tasks. A cancelled task takes one `cancel_reason`, only until
+the end of its day. A pending task whose event lost its `[Goal]` prefix is
+left pending.
 
 **Goal:** `active ↔ paused ↔ completed → archived`, all via `PATCH .status`,
 plus `archived` via `DELETE`. No transition is guarded server-side; the

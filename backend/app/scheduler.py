@@ -1,6 +1,6 @@
 """
-Background jobs: the 23:59 end-of-day sweep, the weekly debrief email, and the
-15-minute calendar → tasks sync.
+Background jobs: the 23:59 rep sweep, the 00:00 task sweep, the weekly debrief
+email, and the 15-minute calendar → tasks sync.
 """
 
 import logging
@@ -21,6 +21,7 @@ from app.services.debrief import (
 )
 from app.services.email import send_debrief_email
 from app.services.google_calendar import GoogleCalendarClient
+from app.services.task_sweep import sweep_missed_tasks
 from app.services.task_sync import sync_tasks
 from app.services.sweep import sweep_missed
 from app.db.session import AsyncSessionLocal
@@ -90,6 +91,19 @@ async def run_end_of_day_sweep():
         logger.exception("End-of-day sweep failed")
 
 
+async def run_task_sweep():
+    """
+    00:00 local: yesterday is over. Its unchecked tasks become missed and their
+    calendar events turn red.
+    """
+    try:
+        async with AsyncSessionLocal() as session:
+            yesterday = datetime.now(tz=settings.tz).date() - timedelta(days=1)
+            await sweep_missed_tasks(session, through=yesterday)
+    except Exception:
+        logger.exception("Task sweep failed")
+
+
 async def run_task_sync():
     """
     Every 15 minutes: pull today's and tomorrow's tagged events into tasks.
@@ -126,6 +140,17 @@ def init_scheduler():
         replace_existing=True,
     )
 
+    # Like the rep sweep, registered regardless of configuration: marking a task
+    # missed is product behaviour, and the calendar colour is only a copy of it.
+    scheduler.add_job(
+        run_task_sweep,
+        "cron",
+        hour=0,
+        minute=0,
+        id="task_sweep",
+        replace_existing=True,
+    )
+
     if settings.google_calendar_enabled:
         scheduler.add_job(
             run_task_sync,
@@ -157,7 +182,7 @@ def init_scheduler():
     scheduler.start()
     # Log the resolved fire times, not the intent. This is the only way to catch
     # a timezone regression without waiting a day or a week to notice.
-    for job_id in ("end_of_day_sweep", "weekly_debrief", "task_sync"):
+    for job_id in ("end_of_day_sweep", "task_sweep", "weekly_debrief", "task_sync"):
         job = scheduler.get_job(job_id)
         if job is not None:
             logger.info("Scheduled %s — next run %s", job_id, job.next_run_time)

@@ -21,8 +21,8 @@ until Unit 20 retires its UI. Its data is kept forever.
 
 ## Working On
 
-Nothing in flight. **Units 14 and 15 shipped** on the redesign branch; next is
-Unit 16 (check off, 00:00 sweep, removal reasons).
+Nothing in flight. **Units 14–16 shipped** on the redesign branch; next is
+Unit 17 (Today becomes the daily task checklist) — the first frontend unit.
 
 **Do not merge the redesign branch to `main` before Unit 17.** Both halves
 auto-deploy from `main`, and the 15-minute sync job would start filling
@@ -177,6 +177,17 @@ Merging 14–17 together is the first point where the flow works end to end.
   credentials. First real check: run locally with `backend/.env`, add a
   `[Goal] test` event, `POST /tasks/sync`, then delete the event and sync again.
 
+- **Unit 16 — Check off, sweep, removal reasons** (2026-09-24, redesign
+  branch). `POST /tasks/{id}/complete` (green) and
+  `POST /tasks/{id}/cancel-reason`, both 409 once the task's day has ended;
+  `services/task_sweep.py` and a `task_sweep` job at 00:00 `settings.tz`
+  (red), registered regardless of Google config like the rep sweep. 11 new
+  tests with a recording fake calendar that asserts the colours sent; 78/78
+  pass, and removing the midnight check fails two of them. Verified on a
+  migrated Postgres through the running server and by calling the real job
+  function: completed stays completed, yesterday's pending became missed,
+  cancelled untouched; `smoke.py` 17/17. Not verified against real Google.
+
 ## In Progress
 
 Nothing.
@@ -187,7 +198,7 @@ Nothing.
 
 14. ~~`tasks` table (schema only)~~ — shipped 2026-09-24
 15. ~~Pull tasks from Google Calendar~~ — shipped 2026-09-24
-16. Check off, 00:00 sweep (green / red), removal reasons
+16. ~~Check off, 00:00 sweep, removal reasons~~ — shipped 2026-09-24
 17. Today becomes the daily task checklist
 18. Day graph — 3D points-and-lines, Lobe Atlas look
 19. Week graph + goal ranking by time spent
@@ -245,11 +256,8 @@ Changing a Railway variable triggers an automatic redeploy.
 
 The agent must not answer these on its own.
 
-**Redesign (2026-09-24)** — the first six were answered by Chris the same
-day and moved to Decisions. Still open:
-
-- **A removal reason never given** — keep asking on following days, or let it
-  expire? Blocks the reasons list in Unit 17.
+**Redesign (2026-09-24)** — all answered by Chris the same day and moved to
+Decisions. None open.
 
 **Rep system (pre-redesign)** — may be moot after Unit 20:
 
@@ -303,6 +311,12 @@ day and moved to Decisions. Still open:
   never deletes them; purging task rows would erase evidence. · Traded away: a
   goal created by mistake and already used in the calendar can only be
   archived.
+- **An unanswered removal reason is dropped after its day** (2026-09-24,
+  Chris) — "that day" is the task's own `scheduled_date`, so no new column was
+  needed: the endpoint refuses a reason once that day has ended, and Unit 17's
+  list shows only the day's cancelled tasks. Checking off follows the same
+  midnight rule, enforced in the endpoint as well as the sweep. · Traded away:
+  a reason is lost if the day ends first.
 - **A pending task whose event loses its `[Goal]` prefix stays pending**
   (2026-09-24, Unit 15, agent's call within the spec) — the event still
   exists, so nothing was deleted and there is nothing to ask a reason for.
@@ -516,8 +530,8 @@ in `architecture.md`.
 ## Resume Here
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
-first — it supersedes the notes below on direction. Units 14–15 are shipped on
-the branch (not `main` — see Working On). Next action: Unit 16.
+first — it supersedes the notes below on direction. Units 14–16 are shipped on
+the branch (not `main` — see Working On). Next action: Unit 17.
 
 **Local test setup in a cloud container:** `conftest.py` connects as role
 `chrisilias` with no password. There, start Postgres, create that role with a

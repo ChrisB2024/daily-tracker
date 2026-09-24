@@ -30,6 +30,7 @@ time.
 | -------- | ------ |
 | How does an event know its goal? | **Title prefix.** `[Goal title] what I'm doing`, e.g. `[Hitwin] ship onboarding`. Matched case-insensitively against active goal titles. Events with no prefix are ignored — meetings and personal events never enter the tracker. |
 | A task not checked off by end of day? | **Missed, and the event turns red.** The 00:00 sweep marks it `missed` and patches the event to `colorId 11`. It stays visible as missed. |
+| A removal reason never given? | **Dropped after that day.** A reason can be written until midnight of the task's own day; after that the question disappears. |
 | Hard-deleting a goal that has tasks? | **Refused with 409.** The tracker never deletes an event Chris made, and purging task rows would erase evidence. Archive instead. |
 | What does "worked more" mean in the graph? | **Time spent.** Sum of the durations of *completed* tasks per goal. A 3h block outweighs a 20-minute one. |
 | All-day events? | **Match the length on the calendar.** Duration is the event's span as Google stores it, so a one-day all-day event is 1440 minutes. |
@@ -149,7 +150,7 @@ cancelled — the event still exists, so nothing was deleted. Sync runs over
 returns 503 without Google configured, 502 if Google is unreachable (nothing
 changed), 409 if it collided with the job on the UNIQUE constraint.
 
-### Unit 16 — Check off, sweep, and removal reasons
+### Unit 16 — Check off, sweep, and removal reasons — shipped 2026-09-24
 
 **Builds:** `POST /tasks/{id}/complete` (409 unless pending) patching the event
 green; a 00:00 job in `settings.tz` marking the previous day's pending tasks
@@ -159,6 +160,12 @@ Reuses `patch_color`.
 **Done when:** checking a task turns its event green · a task left unchecked is
 red the next morning without pressing anything · completing twice returns 409 ·
 a task checked at 23:58 stays completed · a reason can be written once.
+
+*As built:* "until midnight" is enforced by the endpoints as well as the
+sweep — completing a task, or giving a reason, for a day that has ended
+returns 409 even if the 00:00 job has not run yet. Reasons are stripped and
+limited to 200 characters. The database is written first and Google second, so
+a check-off survives an unreachable calendar.
 
 ### Unit 17 — The daily list
 
@@ -220,8 +227,4 @@ job and 23:59 rep sweep stop being registered.
 
 ## Open Questions
 
-Answered 2026-09-24 — see the Decisions table. Still open:
-
-1. **A removal reason never given.** If Chris does not write a reason for a
-   cancelled task, does the list keep asking on following days, or does it
-   expire? Blocks Unit 17's list, not Unit 16.
+All answered 2026-09-24 — see the Decisions table. None open.

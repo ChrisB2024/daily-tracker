@@ -2,13 +2,16 @@
 Tasks — calendar events tagged to a goal (calendar-first redesign).
 
 Routes:
-    GET  /tasks        tasks for one day (?date=YYYY-MM-DD, default today)
-    POST /tasks/sync   pull one day from Google Calendar now (?date=, default today)
+    GET  /tasks                     tasks for one day (?date=YYYY-MM-DD, default today)
+    POST /tasks/sync                pull one day from Google Calendar now (?date=, default today)
+    POST /tasks/{id}/complete       check a task off; its event turns green
+    POST /tasks/{id}/cancel-reason  say why a removed task was removed
 
 There is no create, update or delete: the calendar is where tasks are made.
 """
 
 from datetime import date, datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -18,8 +21,8 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.db.session import get_session
-from app.models import Task
-from app.schemas.task import TaskRead, TaskSyncRead
+from app.models import Task, TaskStatus
+from app.schemas.task import TaskCancelReason, TaskRead, TaskSyncRead
 from app.services.google_calendar import GoogleCalendarClient
 from app.services.task_sync import sync_tasks
 
@@ -88,3 +91,75 @@ async def sync_day(
             detail="Could not reach Google Calendar. Nothing was changed.",
         )
     return result
+
+
+COMPLETED_COLOR_ID = 10  # Basil (green) — same colour a completed rep gets
+
+
+async def _get_task(session: AsyncSession, task_id: UUID) -> Task:
+    task = await session.get(Task, task_id, options=[selectinload(Task.goal)])
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    return task
+
+
+def _require_day_not_over(task: Task) -> None:
+    """Tasks are answered for until midnight; after that the 00:00 sweep owns them."""
+    if task.scheduled_date < _today():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="That day is over. Tasks can only be changed until midnight.",
+        )
+
+
+@router.post("/{task_id}/complete", response_model=TaskRead)
+async def complete_task(task_id: UUID, session: AsyncSession = Depends(get_session)):
+    task = await _get_task(session, task_id)
+    if task.status != TaskStatus.pending:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot complete a {task.status.value} task",
+        )
+    _require_day_not_over(task)
+
+    task.status = TaskStatus.completed
+    task.completed_at = datetime.now(tz=settings.tz)
+    # The database first, then Google: the check-off is recorded even if the
+    # calendar is unreachable, and patch_color never raises.
+    await session.commit()
+
+    if settings.google_calendar_enabled:
+        client = GoogleCalendarClient(
+            settings.google_client_id,
+            settings.google_client_secret,
+            settings.google_refresh_token,
+        )
+        await client.patch_color(task.calendar_event_id, COMPLETED_COLOR_ID)
+
+    return _read(task)
+
+
+@router.post("/{task_id}/cancel-reason", response_model=TaskRead)
+async def give_cancel_reason(
+    task_id: UUID,
+    payload: TaskCancelReason,
+    session: AsyncSession = Depends(get_session),
+):
+    task = await _get_task(session, task_id)
+    if task.status != TaskStatus.cancelled:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only a removed task takes a reason",
+        )
+    if task.cancel_reason is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This task already has a reason",
+        )
+    # Decided 2026-09-24: a reason not given by the end of the task's day is
+    # dropped — the question goes away rather than following Chris around.
+    _require_day_not_over(task)
+
+    task.cancel_reason = payload.reason
+    await session.commit()
+    return _read(task)
