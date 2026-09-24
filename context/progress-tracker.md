@@ -29,8 +29,8 @@ black background on Chris's Mac — **confirmed by Chris 2026-09-24**.
 **Unit 19 (week view) merged to `main` on 2026-09-24** at Chris's
 instruction.
 
-**Unit 20 (retire the rep UI) shipped on the redesign branch, not yet
-merged.** With it, Build Plan 2 is complete.
+**Unit 20 (retire the rep UI) merged to `main` on 2026-09-24** at Chris's
+instruction. **Build Plan 2 is complete.**
 
 **Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
@@ -249,7 +249,7 @@ Nothing.
 17. ~~Today becomes the daily task checklist~~ — shipped 2026-09-24
 18. ~~Day graph~~ — shipped and merged 2026-09-24
 19. ~~Week view by goal~~ — shipped and merged 2026-09-24
-20. ~~Retire the rep UI~~ — shipped 2026-09-24 (branch)
+20. ~~Retire the rep UI~~ — shipped and merged 2026-09-24
 
 **Build Plan 1** (all shipped) — the build plan is `context/specs/00-build-plan.md` — 13 units, approved
 2026-09-07. Start with **Unit 01**. In short:
@@ -613,9 +613,9 @@ in `architecture.md`.
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
 first — it supersedes the notes below on direction. Units 14–16 are shipped on
-`main`, Units 18 and 19 included; Unit 20 is on the branch. Next action:
-merge Unit 20 when Chris says so. Build Plan 2 is then complete; the open
-items are the "Not units yet" list in the spec and the Known Debt below.
+`main` — all of Build Plan 2 (Units 14–20). Nothing is in flight. The open
+items are the "Not units yet" list in the spec and the Known Debt below; any
+new work needs a spec first.
 
 **Local test setup in a cloud container:** `conftest.py` connects as role
 `chrisilias` with no password. There, start Postgres, create that role with a
