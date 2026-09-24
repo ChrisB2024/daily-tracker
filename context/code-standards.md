@@ -55,8 +55,11 @@ unauthenticated API (see `architecture.md` Security invariant S2).
   type. A **chain** is a per-rep-type consecutive-day streak — never "streak"
   in code. **Daily score** is completed reps on a date; **week total** is
   completed reps in the Mon–Sun week; **PR** is the best-ever week total.
-  **First rep** is a rep type flagged `is_first_rep`. Never write "task",
-  "habit", or "todo" — the readme rejects all three deliberately.
+  **First rep** is a rep type flagged `is_first_rep`. A **Task** (added
+  2026-09-24, calendar-first redesign) is one Google Calendar event tagged to a
+  goal by its `[Goal]` title prefix — it has no rep type and is never called a
+  rep. Never write "habit" or "todo". "Task" was banned until the redesign made
+  it the name of a real entity; use it only for that entity.
 - Python: `snake_case` functions and columns, `PascalCase` models, schemas and
   enums. Service functions read as their output: `get_daily_score`,
   `get_chains`, `get_weekly_pr`.

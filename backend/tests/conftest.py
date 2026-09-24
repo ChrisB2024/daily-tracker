@@ -76,7 +76,7 @@ async def clean_tables():
 
     async with AsyncSessionLocal() as s:
         await s.execute(
-            text("TRUNCATE reps, rep_types, goals, weekly_summaries RESTART IDENTITY CASCADE")
+            text("TRUNCATE tasks, reps, rep_types, goals, weekly_summaries RESTART IDENTITY CASCADE")
         )
         await s.commit()
     yield

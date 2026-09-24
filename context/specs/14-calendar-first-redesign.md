@@ -112,7 +112,7 @@ otherwise parse as a task for a goal called "Build project". The importer
 
 ## Units
 
-### Unit 14 — `tasks` table
+### Unit 14 — `tasks` table — shipped 2026-09-24
 
 **Builds:** the model, schema and an additive Alembic revision. No endpoint, no
 UI. **Boundary:** `models/` + `alembic/versions/`.
@@ -137,7 +137,9 @@ Primary calendar only. A pending task whose event is gone from Google becomes
 `[Nonexistent] x` event is reported as unmatched · an old rep event is not
 imported · moving a completed task's event does not move the task · deleting
 a pending task's event cancels it; deleting a completed one changes nothing ·
-an all-day event imports with its calendar length.
+an all-day event imports with its calendar length · `DELETE /goals/{id}?hard=true`
+on a goal with tasks behaves as decided (see Open Questions) rather than
+500ing on the `tasks.goal_id` FK after it has already deleted calendar events.
 
 ### Unit 16 — Check off, sweep, and removal reasons
 
@@ -215,3 +217,10 @@ Answered 2026-09-24 — see the Decisions table. Still open:
 1. **A removal reason never given.** If Chris does not write a reason for a
    cancelled task, does the list keep asking on following days, or does it
    expire? Blocks Unit 17's list, not Unit 16.
+
+2. **Hard-deleting a goal that has tasks.** Found in Unit 14. `?hard=true`
+   deletes the goal's rep events from Google, then deletes rows; a task row now
+   blocks that on its FK, so it would 500 halfway. Options: refuse with 409
+   while the goal has tasks (recommended: task events are Chris's own, and the
+   tracker must never delete an event it did not create), or purge the task
+   rows too. Blocks Unit 15 shipping, since that is when task rows first exist.

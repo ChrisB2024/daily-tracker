@@ -70,6 +70,10 @@ binding rather than advisory.
 
 - **Postgres** — `goals`, `rep_types`, `reps`. Three tables, all UUID
   primary keys, all `created_at` defaulted server-side with `now()`.
+- **Postgres, `tasks`** (Unit 14, 2026-09-24) — one row per Google Calendar
+  event tagged `[Goal] …`, FK to `goals`, `calendar_event_id` UNIQUE. Created
+  but not yet written to: the sync that fills it is Unit 15. `cancel_reason` is
+  the one free-text column Chris writes; S2 applies to it.
 - **Environment variables** — every secret: `DATABASE_URL`,
   `GOOGLE_CLIENT_ID` / `_SECRET` / `_REFRESH_TOKEN`, `CLAUDE_API_KEY`,
   `ELEVENLABS_API_KEY`, `SMTP_USER` / `_PASSWORD`. Loaded once into a
@@ -100,6 +104,7 @@ write access.
 | `RepType` | `POST /goals/{goal_id}/rep-types` — 404 if goal missing | `PATCH /rep-types/{id}` | `DELETE` → `status = archived` only. No hard delete. | Reps preserved by design (`cascade="save-update, merge"`, no delete cascade). Archiving now actually retires the type: it drops out of `get_chains` (Unit 02) and out of `GET /goals/{id}/rep-types` unless `include_archived=true` (fixed 2026-09-07). `get_rep_type_analytics` still does not filter on status. |
 | `Rep` | `POST /reps` or `POST /reps/bulk` — both assert the rep type belongs to the goal, and copy `duration_minutes` from the rep type | `PATCH /reps/{id}` (date, time, duration, notes — **does not re-sync the calendar event**) · `POST /reps/{id}/complete` · `POST /reps/mark-missed` | `DELETE /reps/{id}` — hard delete, plus calendar event deletion | Calendar event deleted with the rep. A `PATCH` that moves the rep leaves the event at the old time forever. |
 | Calendar event | Created alongside a rep; `rep.calendar_event_id` stores the id | `patch_color` on complete (10) and miss (11) | Deleted with the rep | Orphaned whenever `create_event` returns `None` (its exception handler swallows the failure), or whenever the rep is rescheduled. |
+| `Task` | Nothing yet — the calendar sync lands in Unit 15 | Nothing yet | Not yet defined | FK to `goals` with no cascade. **A goal hard-delete will fail on the FK once a goal has tasks** — see Open Questions in `progress-tracker.md`. |
 | `WeeklySummary` | Generating a debrief, on demand or by the Sunday job | Upserted per week; `delivered_at` stamped when the email sends | Never deleted | Independent snapshot — holds no FK, so archiving a goal does not alter past weeks. Stats only: the generated prose is **not** stored, so S2 holds unchanged. |
 
 ## State Machines
@@ -112,6 +117,10 @@ Both are terminal. Enforced by three things together: `RepUpdate` omits
 
 - Unreachable by design: `completed → missed`, `missed → completed`, anything
   `→ pending`. There is deliberately no un-complete and no un-miss.
+
+**Task** (schema only, Unit 14): `pending → completed` · `pending → missed` ·
+`pending → cancelled`, all terminal. No endpoint moves a task yet; the
+transitions land in Units 15–16.
 
 **Goal:** `active ↔ paused ↔ completed → archived`, all via `PATCH .status`,
 plus `archived` via `DELETE`. No transition is guarded server-side; the

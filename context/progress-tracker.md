@@ -21,8 +21,8 @@ until Unit 20 retires its UI. Its data is kept forever.
 
 ## Working On
 
-Nothing in flight. The redesign plan is written and waiting on Chris's go-ahead
-for **Unit 14** (the `tasks` table, schema only).
+Nothing in flight. **Unit 14 shipped** on the redesign branch; next is Unit 15
+(pull tasks from Google Calendar).
 
 ## Shipped
 
@@ -147,6 +147,16 @@ for **Unit 14** (the `tasks` table, schema only).
   port 8000, on Railway. Frontend hosted separately, pointed at the API through
   `VITE_API_URL`. CORS wide open.
 
+- **Unit 14 — `tasks` table** (2026-09-24, branch
+  `claude/project-workflow-redesign-5cg1gk`, not yet on `main`). `Task` model
+  and `TaskStatus` (`pending / completed / missed / cancelled`), revision
+  `8fcad7e710dc`. Additive only. Verified on a scratch Postgres 16: upgrade →
+  downgrade → upgrade round-trips, and a schema dump of `reps`, `rep_types`,
+  `goals` and `weekly_summaries` is identical before and after. The downgrade
+  drops the `taskstatus` enum by hand, which autogenerate leaves out. 4 new
+  tests (defaults, unique event id, FK, all-day), 51/51 pass; server boots and
+  `smoke.py` 12/12 against the migrated database. No endpoint or UI yet.
+
 ## In Progress
 
 Nothing.
@@ -155,7 +165,7 @@ Nothing.
 
 **Build Plan 2** — `context/specs/14-calendar-first-redesign.md`:
 
-14. `tasks` table (schema only)
+14. ~~`tasks` table (schema only)~~ — shipped 2026-09-24
 15. Pull tasks from Google Calendar (sync service, `GET /tasks`, 15-min job)
 16. Check off, 00:00 sweep (green / red), removal reasons
 17. Today becomes the daily task checklist
@@ -218,6 +228,11 @@ The agent must not answer these on its own.
 **Redesign (2026-09-24)** — the first six were answered by Chris the same
 day and moved to Decisions. Still open:
 
+- **Hard-deleting a goal that has tasks** — found in Unit 14. `?hard=true`
+  deletes the goal's rep events from Google and then its rows; a `tasks` row
+  blocks the row delete on its FK, so it would 500 halfway. Refuse with 409
+  while the goal has tasks (recommended — the tracker must never delete an
+  event Chris made), or purge task rows too? Blocks Unit 15 shipping.
 - **A removal reason never given** — keep asking on following days, or let it
   expire? Blocks the reasons list in Unit 17.
 
@@ -475,8 +490,9 @@ in `architecture.md`.
 ## Resume Here
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
-first — it supersedes the notes below on direction. Next action: Unit 14, once
-Chris approves. Units 14–16 are unblocked.
+first — it supersedes the notes below on direction. Unit 14 is shipped on the
+branch. Next action: Unit 15, which needs the goal hard-delete question
+answered before it ships.
 
 *Pre-redesign notes:*
 
