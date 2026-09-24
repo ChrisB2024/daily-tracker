@@ -16,7 +16,7 @@ code consistently follows); each one that the code currently breaks is listed in
 | Database | Postgres | Native UUID, `Date`/`Time` columns, enum types. Data is relational (Goal → RepType → Rep) with no document-shaped payloads. |
 | Frontend | React 19 + Vite, no router, no state library | One user, seven views, all state fetched per view. A router would add deep-linking nobody asked for. |
 | Styling | One hand-written CSS file with `:root` custom properties | 1524 lines, semantic kebab-case class names. No Tailwind, no CSS modules. |
-| Calendar | Google Calendar API v3 (`google-api-python-client`) | The mirror. Scoped to `calendar.events`, used write-only. |
+| Calendar | Google Calendar API v3 (`google-api-python-client`) | Scoped to `calendar.events`. The mirror for reps (written, never read); the source of planned work for tasks (read, recoloured only). |
 | LLM | `anthropic` SDK, model `claude-opus-4-8` | Generates the weekly debrief prose from aggregated counts. |
 | TTS | `elevenlabs` SDK, `eleven_turbo_v2_5`, voice `21m00Tcm4TlvDq8ikWAM` | Audio debrief. |
 | Email | `smtplib` + Gmail SMTP (app password) | Stopgap delivery channel for the Sunday debrief. |
@@ -52,6 +52,14 @@ commit → `GoogleCalendarClient` → Google Calendar → returned `event.id` wr
 back onto the rep → second commit. The tracker is the source of truth at every
 step; the calendar never writes back.
 
+**The task path** (Unit 15). Every 15 minutes, or `POST /tasks/sync` →
+`services/task_sync.py` → `GoogleCalendarClient.list_events` (primary calendar)
+→ skip rep events and untagged events → match `[Goal]` to an active goal →
+upsert **pending** tasks only → pending tasks whose event vanished are looked
+up by id: deleted → `cancelled`, moved → follow it, unreachable → unchanged →
+one commit. Here the calendar is the source of what was *planned*; the tracker
+remains the source of what was *done*.
+
 **The read path.** Browser → `api.js` → router → `services/summary.py` → many
 small `select()` queries over `reps` → aggregated in Python → Pydantic response
 model → JSON. Nothing is cached, nothing is precomputed, no metric is stored.
@@ -71,17 +79,18 @@ binding rather than advisory.
 - **Postgres** — `goals`, `rep_types`, `reps`. Three tables, all UUID
   primary keys, all `created_at` defaulted server-side with `now()`.
 - **Postgres, `tasks`** (Unit 14, 2026-09-24) — one row per Google Calendar
-  event tagged `[Goal] …`, FK to `goals`, `calendar_event_id` UNIQUE. Created
-  but not yet written to: the sync that fills it is Unit 15. `cancel_reason` is
-  the one free-text column Chris writes; S2 applies to it.
+  event tagged `[Goal] …`, FK to `goals`, `calendar_event_id` UNIQUE. Filled by
+  the calendar sync (Unit 15). `cancel_reason` is the one free-text column Chris
+  writes; S2 applies to it.
 - **Environment variables** — every secret: `DATABASE_URL`,
   `GOOGLE_CLIENT_ID` / `_SECRET` / `_REFRESH_TOKEN`, `CLAUDE_API_KEY`,
   `ELEVENLABS_API_KEY`, `SMTP_USER` / `_PASSWORD`. Loaded once into a
   module-level `Settings` singleton in `config.py`. `backend/.env` is gitignored;
   production values live in Railway's environment.
-- **Google Calendar** — the display copy of rep state. Event carries
-  `extendedProperties.private.rep_id`, so an event can be traced back to a rep.
-  Never read back.
+- **Google Calendar** — for reps, the display copy of rep state; the event
+  carries `extendedProperties.private.rep_id`, so it can be traced back to a
+  rep, and is never read back. For tasks, the source of what was planned:
+  events tagged `[Goal]` are read into `tasks` (Unit 15).
 - **Postgres, `weekly_summaries`** — one row per week holding the debrief's
   *numbers* (`rep_data`, `patterns`) and `delivered_at`. Decided 2026-09-07:
   the generated prose is deliberately **not** persisted, because S2 permits an
@@ -104,7 +113,7 @@ write access.
 | `RepType` | `POST /goals/{goal_id}/rep-types` — 404 if goal missing | `PATCH /rep-types/{id}` | `DELETE` → `status = archived` only. No hard delete. | Reps preserved by design (`cascade="save-update, merge"`, no delete cascade). Archiving now actually retires the type: it drops out of `get_chains` (Unit 02) and out of `GET /goals/{id}/rep-types` unless `include_archived=true` (fixed 2026-09-07). `get_rep_type_analytics` still does not filter on status. |
 | `Rep` | `POST /reps` or `POST /reps/bulk` — both assert the rep type belongs to the goal, and copy `duration_minutes` from the rep type | `PATCH /reps/{id}` (date, time, duration, notes — **does not re-sync the calendar event**) · `POST /reps/{id}/complete` · `POST /reps/mark-missed` | `DELETE /reps/{id}` — hard delete, plus calendar event deletion | Calendar event deleted with the rep. A `PATCH` that moves the rep leaves the event at the old time forever. |
 | Calendar event | Created alongside a rep; `rep.calendar_event_id` stores the id | `patch_color` on complete (10) and miss (11) | Deleted with the rep | Orphaned whenever `create_event` returns `None` (its exception handler swallows the failure), or whenever the rep is rescheduled. |
-| `Task` | Nothing yet — the calendar sync lands in Unit 15 | Nothing yet | Not yet defined | FK to `goals` with no cascade. **A goal hard-delete will fail on the FK once a goal has tasks** — see Open Questions in `progress-tracker.md`. |
+| `Task` | The calendar sync, from a `[Goal]`-tagged event on the primary calendar | The sync, **only while pending** — title, goal, date, times, duration follow the event | `cancelled` when its event is deleted while pending; `completed` / `missed` land in Unit 16. Never deleted. | FK to `goals` with no cascade. `DELETE /goals/{id}?hard=true` returns 409 while the goal has any task (decided 2026-09-24), before any calendar call — so the tracker never deletes an event Chris made. |
 | `WeeklySummary` | Generating a debrief, on demand or by the Sunday job | Upserted per week; `delivered_at` stamped when the email sends | Never deleted | Independent snapshot — holds no FK, so archiving a goal does not alter past weeks. Stats only: the generated prose is **not** stored, so S2 holds unchanged. |
 
 ## State Machines
@@ -118,9 +127,10 @@ Both are terminal. Enforced by three things together: `RepUpdate` omits
 - Unreachable by design: `completed → missed`, `missed → completed`, anything
   `→ pending`. There is deliberately no un-complete and no un-miss.
 
-**Task** (schema only, Unit 14): `pending → completed` · `pending → missed` ·
-`pending → cancelled`, all terminal. No endpoint moves a task yet; the
-transitions land in Units 15–16.
+**Task:** `pending --event deleted in Google (sync)--> cancelled` (Unit 15) ·
+`pending → completed` and `pending → missed` land in Unit 16. All terminal. No
+schema accepts `status`, and the sync only ever writes to pending tasks. A
+pending task whose event lost its `[Goal]` prefix is left pending.
 
 **Goal:** `active ↔ paused ↔ completed → archived`, all via `PATCH .status`,
 plus `archived` via `DELETE`. No transition is guarded server-side; the
@@ -136,6 +146,7 @@ via `PATCH`. Intentional — a paused domain can be resumed.
 | Browser → API | untrusted → trusted | Pydantic parses every body and every path/query param. `criterion` carries `min_length=1`. Create routes assert the rep type belongs to the stated goal before inserting. **No authentication and no authorization** — accepted (S2). CORS is `allow_origins=["*"]` with `allow_credentials=True`. |
 | API → Postgres | trusted → trusted | SQLAlchemy Core/ORM only. No raw SQL, no string-built queries anywhere in the repo. |
 | API → Google Calendar | trusted → semi-trusted | OAuth refresh-token grant, scoped to `calendar.events` only. Runs in `asyncio.to_thread`. Every operation wraps its own try/except, logs a warning, and returns `None` rather than raising. **Rep type names, goal titles and rep notes leave the system here.** |
+| Google Calendar → API | semi-trusted → trusted | Since Unit 15. Event titles and times enter through `task_sync.parse_event`; only `[Goal]`-prefixed events on the primary calendar become rows, and only titles, dates, times and durations are stored — never descriptions, attendees or locations. `list_events` returns `None` on failure, never `[]`, so an outage cannot read as "everything was deleted". |
 | API → Anthropic | trusted → semi-trusted | API key from env. Week counts **and goal titles** are sent in the prompt. Rep notes are not. All exceptions caught and converted to an error string in the summary body. |
 | API → ElevenLabs | trusted → semi-trusted | API key from env. The debrief text, which contains goal titles, is sent. Failure returns empty bytes. |
 | API → Gmail SMTP | trusted → semi-trusted | STARTTLS on port 587, app password from env. Recipient is always `settings.smtp_user` — the sender mails himself. |
@@ -165,11 +176,6 @@ Non-Negotiables from `readme.md`, restated as checkable rules.
 
 ### Product
 
-> **Pending change (2026-09-24).** Product 5 and Security 3 flip when Unit 15
-> of `specs/14-calendar-first-redesign.md` lands: the calendar becomes the
-> source of *planned* work, read under the existing `calendar.events` scope.
-> Until that unit ships, they hold as written.
-
 1. **Every rep tags to a rep type; every rep type tags to a goal.** No orphans,
    no untyped reps.
 2. **Every rep type has a non-empty one-line criterion.** Required at creation.
@@ -180,8 +186,12 @@ Non-Negotiables from `readme.md`, restated as checkable rules.
 4. **Chains are independent per rep type, and are shown to the user.** Breaking
    one must never break another, and a chain the user is holding must be legible
    on the dashboard.
-5. **The calendar is a mirror, never a source.** Sync is one-way. Nothing read
-   from Google Calendar may ever change tracker state.
+5. **The calendar is the source of what was planned; the tracker is the source
+   of what was done.** (Rewritten 2026-09-24, Unit 15 — previously "a mirror,
+   never a source".) Reading Google may create a pending task, reshape a
+   pending task, or cancel a pending task whose event was deleted. **Nothing
+   read from Google may ever change a completed, missed or cancelled task, or
+   any rep.**
 6. **The Sunday debrief reports findings, not encouragement.** Built from rep
    data only, never self-report. No motivational language, no praise, no emoji —
    chains, numbers and patterns.
@@ -199,10 +209,12 @@ Non-Negotiables from `readme.md`, restated as checkable rules.
    metadata.** No credentials, no third-party tokens, no sensitive personal
    content in `notes`. Do not add authentication without being asked, and do not
    store anything whose disclosure would matter.
-3. **Google OAuth stays scoped to `calendar.events` and write-only.** The
-   tracker never reads calendar state. The refresh token lives in the
-   environment, never in Postgres, so a database compromise cannot yield
-   calendar access.
+3. **Google OAuth stays scoped to `calendar.events`.** (Rewritten 2026-09-24,
+   Unit 15 — previously "write-only".) The tracker reads events on the primary
+   calendar and may recolour them, but **never creates, moves or deletes an
+   event Chris made** — create, move and delete remain for rep events only. The
+   refresh token lives in the environment, never in Postgres, so a database
+   compromise cannot yield calendar access.
 4. **Debrief payloads carry aggregates, not raw content.** Counts and goal
    titles may leave the system; rep notes may not.
 

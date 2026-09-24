@@ -1,10 +1,11 @@
 """
-Background jobs: the 23:59 end-of-day sweep and the weekly debrief email.
+Background jobs: the 23:59 end-of-day sweep, the weekly debrief email, and the
+15-minute calendar → tasks sync.
 """
 
 import logging
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -19,6 +20,8 @@ from app.services.debrief import (
     store_weekly_summary,
 )
 from app.services.email import send_debrief_email
+from app.services.google_calendar import GoogleCalendarClient
+from app.services.task_sync import sync_tasks
 from app.services.sweep import sweep_missed
 from app.db.session import AsyncSessionLocal
 
@@ -87,6 +90,28 @@ async def run_end_of_day_sweep():
         logger.exception("End-of-day sweep failed")
 
 
+async def run_task_sync():
+    """
+    Every 15 minutes: pull today's and tomorrow's tagged events into tasks.
+    Tomorrow is included so an evening of planning shows up before midnight.
+    """
+    try:
+        client = GoogleCalendarClient(
+            settings.google_client_id,
+            settings.google_client_secret,
+            settings.google_refresh_token,
+        )
+        async with AsyncSessionLocal() as session:
+            today = datetime.now(tz=settings.tz).date()
+            result = await sync_tasks(
+                session, client, today, today + timedelta(days=1), settings.tz
+            )
+            if result is None:
+                logger.error("Task sync skipped: Google Calendar unreachable")
+    except Exception:
+        logger.exception("Task sync failed")
+
+
 def init_scheduler():
     """Initialize and start the background scheduler."""
     # The sweep is core product behaviour — missed reps must turn red on their
@@ -100,6 +125,20 @@ def init_scheduler():
         id="end_of_day_sweep",
         replace_existing=True,
     )
+
+    if settings.google_calendar_enabled:
+        scheduler.add_job(
+            run_task_sync,
+            "interval",
+            minutes=15,
+            id="task_sync",
+            replace_existing=True,
+            # A slow Google response must not stack a second run on the first.
+            max_instances=1,
+            coalesce=True,
+        )
+    else:
+        logger.warning("Google Calendar not configured — task sync job not scheduled")
 
     if settings.email_enabled:
         # Weekly debrief email, Sundays at 21:00 local.
@@ -118,7 +157,7 @@ def init_scheduler():
     scheduler.start()
     # Log the resolved fire times, not the intent. This is the only way to catch
     # a timezone regression without waiting a day or a week to notice.
-    for job_id in ("end_of_day_sweep", "weekly_debrief"):
+    for job_id in ("end_of_day_sweep", "weekly_debrief", "task_sync"):
         job = scheduler.get_job(job_id)
         if job is not None:
             logger.info("Scheduled %s — next run %s", job_id, job.next_run_time)

@@ -29,7 +29,8 @@ time.
 | Question | Answer |
 | -------- | ------ |
 | How does an event know its goal? | **Title prefix.** `[Goal title] what I'm doing`, e.g. `[Hitwin] ship onboarding`. Matched case-insensitively against active goal titles. Events with no prefix are ignored — meetings and personal events never enter the tracker. |
-| A task not checked off by end of day? | **Missed, and the event turns red.** Same as reps today: the 23:59 sweep marks it `missed` and patches the event to `colorId 11`. It stays visible as missed. |
+| A task not checked off by end of day? | **Missed, and the event turns red.** The 00:00 sweep marks it `missed` and patches the event to `colorId 11`. It stays visible as missed. |
+| Hard-deleting a goal that has tasks? | **Refused with 409.** The tracker never deletes an event Chris made, and purging task rows would erase evidence. Archive instead. |
 | What does "worked more" mean in the graph? | **Time spent.** Sum of the durations of *completed* tasks per goal. A 3h block outweighs a 20-minute one. |
 | All-day events? | **Match the length on the calendar.** Duration is the event's span as Google stores it, so a one-day all-day event is 1440 minutes. |
 | Event deleted in Google while its task is pending? | **The task disappears from the checklist, and Chris gives a reason.** The row is kept as `cancelled`; at end of day the tracker lists the day's cancelled tasks and asks why each one was removed. |
@@ -120,7 +121,7 @@ UI. **Boundary:** `models/` + `alembic/versions/`.
 round-trips on a scratch database · the `reps` table is byte-for-byte
 unchanged · inserting two tasks with one `calendar_event_id` fails.
 
-### Unit 15 — Pull tasks from the calendar
+### Unit 15 — Pull tasks from the calendar — shipped 2026-09-24
 
 **Builds:** `GoogleCalendarClient.list_events(start, end)`, a
 `services/task_sync.py` that parses the prefix, resolves the goal and upserts
@@ -140,6 +141,13 @@ a pending task's event cancels it; deleting a completed one changes nothing ·
 an all-day event imports with its calendar length · `DELETE /goals/{id}?hard=true`
 on a goal with tasks behaves as decided (see Open Questions) rather than
 500ing on the `tasks.goal_id` FK after it has already deleted calendar events.
+
+*As built:* a pending task whose event loses its `[Goal]` prefix, or whose
+prefix no longer matches an active goal, is left pending rather than
+cancelled — the event still exists, so nothing was deleted. Sync runs over
+`today..tomorrow` from the job and one day from the endpoint. `POST /tasks/sync`
+returns 503 without Google configured, 502 if Google is unreachable (nothing
+changed), 409 if it collided with the job on the UNIQUE constraint.
 
 ### Unit 16 — Check off, sweep, and removal reasons
 
@@ -217,10 +225,3 @@ Answered 2026-09-24 — see the Decisions table. Still open:
 1. **A removal reason never given.** If Chris does not write a reason for a
    cancelled task, does the list keep asking on following days, or does it
    expire? Blocks Unit 17's list, not Unit 16.
-
-2. **Hard-deleting a goal that has tasks.** Found in Unit 14. `?hard=true`
-   deletes the goal's rep events from Google, then deletes rows; a task row now
-   blocks that on its FK, so it would 500 halfway. Options: refuse with 409
-   while the goal has tasks (recommended: task events are Chris's own, and the
-   tracker must never delete an event it did not create), or purge the task
-   rows too. Blocks Unit 15 shipping, since that is when task rows first exist.

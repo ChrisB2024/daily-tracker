@@ -21,8 +21,13 @@ until Unit 20 retires its UI. Its data is kept forever.
 
 ## Working On
 
-Nothing in flight. **Unit 14 shipped** on the redesign branch; next is Unit 15
-(pull tasks from Google Calendar).
+Nothing in flight. **Units 14 and 15 shipped** on the redesign branch; next is
+Unit 16 (check off, 00:00 sweep, removal reasons).
+
+**Do not merge the redesign branch to `main` before Unit 17.** Both halves
+auto-deploy from `main`, and the 15-minute sync job would start filling
+`tasks` in production with nothing to show them, check them off or sweep them.
+Merging 14–17 together is the first point where the flow works end to end.
 
 ## Shipped
 
@@ -157,6 +162,21 @@ Nothing in flight. **Unit 14 shipped** on the redesign branch; next is Unit 15
   tests (defaults, unique event id, FK, all-day), 51/51 pass; server boots and
   `smoke.py` 12/12 against the migrated database. No endpoint or UI yet.
 
+- **Unit 15 — Pull tasks from the calendar** (2026-09-24, redesign branch).
+  `GoogleCalendarClient.list_events` / `get_event`; `services/task_sync.py`
+  (`parse_event` is pure, `sync_tasks` applies the six rules in its docstring);
+  `GET /tasks?date=` and `POST /tasks/sync?date=`; a 15-minute `task_sync` job
+  over today and tomorrow, registered only when Google is configured. Goal
+  hard-delete now returns 409 while the goal has tasks, checked before any
+  calendar call. Product invariant 5 and Security 3 rewritten in
+  `architecture.md`; "two-way sync" left the Never list. 16 new tests with a
+  fake calendar, 67/67 pass; breaking the "never rewrite a finished task" rule
+  makes a test fail. Server verified against a migrated Postgres: `GET /tasks`,
+  sync 503 without credentials, hard delete 409, `smoke.py` 17/17.
+  **Not verified against real Google** — this container has no OAuth
+  credentials. First real check: run locally with `backend/.env`, add a
+  `[Goal] test` event, `POST /tasks/sync`, then delete the event and sync again.
+
 ## In Progress
 
 Nothing.
@@ -166,7 +186,7 @@ Nothing.
 **Build Plan 2** — `context/specs/14-calendar-first-redesign.md`:
 
 14. ~~`tasks` table (schema only)~~ — shipped 2026-09-24
-15. Pull tasks from Google Calendar (sync service, `GET /tasks`, 15-min job)
+15. ~~Pull tasks from Google Calendar~~ — shipped 2026-09-24
 16. Check off, 00:00 sweep (green / red), removal reasons
 17. Today becomes the daily task checklist
 18. Day graph — 3D points-and-lines, Lobe Atlas look
@@ -228,11 +248,6 @@ The agent must not answer these on its own.
 **Redesign (2026-09-24)** — the first six were answered by Chris the same
 day and moved to Decisions. Still open:
 
-- **Hard-deleting a goal that has tasks** — found in Unit 14. `?hard=true`
-  deletes the goal's rep events from Google and then its rows; a `tasks` row
-  blocks the row delete on its FK, so it would 500 halfway. Refuse with 409
-  while the goal has tasks (recommended — the tracker must never delete an
-  event Chris made), or purge task rows too? Blocks Unit 15 shipping.
 - **A removal reason never given** — keep asking on following days, or let it
   expire? Blocks the reasons list in Unit 17.
 
@@ -283,6 +298,17 @@ day and moved to Decisions. Still open:
 - **The graph looks like Lobe Atlas** (2026-09-24) — dark, glowing points,
   coloured labelled clusters per goal, drag to rotate, scroll to zoom. Unit 18
   decides hand-written canvas vs `3d-force-graph`.
+- **A goal with tasks cannot be hard-deleted** (2026-09-24, Chris) — 409,
+  checked before any Google call. Task events are Chris's own and the tracker
+  never deletes them; purging task rows would erase evidence. · Traded away: a
+  goal created by mistake and already used in the calendar can only be
+  archived.
+- **A pending task whose event loses its `[Goal]` prefix stays pending**
+  (2026-09-24, Unit 15, agent's call within the spec) — the event still
+  exists, so nothing was deleted and there is nothing to ask a reason for.
+  Renaming a goal in the tracker would otherwise cancel every pending task
+  tagged with its old name. · Traded away: un-tagging an event is not a way to
+  withdraw a task; delete the event instead.
 - **Poll the calendar, don't subscribe to push** (2026-09-24, proposed) — a
   15-minute job plus a sync button. Google watch channels need a public
   webhook, renewals and a verified domain; polling is one function Chris can
@@ -490,9 +516,13 @@ in `architecture.md`.
 ## Resume Here
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
-first — it supersedes the notes below on direction. Unit 14 is shipped on the
-branch. Next action: Unit 15, which needs the goal hard-delete question
-answered before it ships.
+first — it supersedes the notes below on direction. Units 14–15 are shipped on
+the branch (not `main` — see Working On). Next action: Unit 16.
+
+**Local test setup in a cloud container:** `conftest.py` connects as role
+`chrisilias` with no password. There, start Postgres, create that role with a
+password and export `PGPASSWORD`, `PGHOST=localhost`, `PGUSER=chrisilias`
+before `pytest`.
 
 *Pre-redesign notes:*
 

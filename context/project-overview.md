@@ -8,7 +8,7 @@ confirmed by Chris; everything else is observed from code.
 > day, shown as a points-and-lines graph. See
 > `specs/14-calendar-first-redesign.md`. This file describes the rep system as
 > shipped; its Core Flow, Capabilities and Never list are rewritten unit by unit
-> as the redesign lands. "Two-way calendar sync" is leaving the Never list.
+> as the redesign lands. "Two-way calendar sync" left the Never list in Unit 15.
 
 ## The Problem
 
@@ -79,6 +79,14 @@ stops opening it.
 - Global "mark missed" sweep.
 - Delete a rep, which also deletes its calendar event.
 
+### Tasks (calendar-first redesign, since Unit 15)
+- Events on the primary Google Calendar titled `[Goal] …` are pulled in as
+  pending tasks every 15 minutes, or now via `POST /tasks/sync`.
+- `GET /tasks?date=` lists a day's tasks with their goal titles.
+- A pending task follows its event when it moves; it is cancelled when the
+  event is deleted. Finished tasks never change.
+- A goal with tasks cannot be hard-deleted (409); archive it instead.
+
 ### Metrics — all computed at read time
 - Daily score, week total (Mon-start), all-time weekly PR.
 - First-rep-before-noon rate for the current week.
@@ -114,7 +122,6 @@ stops opening it.
 
 ### Never
 - Multi-user, teams, sharing, or account management.
-- Two-way calendar sync. Calendar edits must never write back to the tracker.
 - Native mobile app. The responsive web dashboard on a phone is the answer.
 - Habit inference or automatic rep tagging.
 - Cross-goal rep types. A rep type belongs to exactly one goal.
