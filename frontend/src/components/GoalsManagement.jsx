@@ -6,6 +6,7 @@ import {
   deleteGoal,
   deleteGoalHard,
 } from "../api";
+import PushSettings from "./PushSettings";
 
 // Goals only. Rep types were managed here until Unit 20 of the calendar-first
 // redesign; tasks now tag straight to a goal by its title, so each card shows
@@ -116,6 +117,8 @@ export default function GoalsManagement({ onBack }) {
 
   return (
     <div className="management">
+      <PushSettings />
+
       <h2>Goals</h2>
 
       {showNewGoalForm && (

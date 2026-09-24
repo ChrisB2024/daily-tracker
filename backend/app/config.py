@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     smtp_user: str | None = None
     smtp_password: str | None = None
 
+    # Web push (optional, Build Plan 3). Generate once with
+    # scripts/generate_vapid_keys.py and set in Railway. The private key signs
+    # every push; it must never reach the database, a log or the browser.
+    vapid_public_key: str | None = None
+    vapid_private_key: str | None = None
+    vapid_subject: str | None = None  # "mailto:you@example.com"
+
     @property
     def tz(self) -> tzinfo:
         return ZoneInfo(self.app_timezone)
@@ -41,6 +48,10 @@ class Settings(BaseSettings):
     @property
     def debrief_enabled(self) -> bool:
         return bool(self.claude_api_key and self.elevenlabs_api_key)
+
+    @property
+    def push_enabled(self) -> bool:
+        return all([self.vapid_public_key, self.vapid_private_key, self.vapid_subject])
 
     @property
     def email_enabled(self) -> bool:

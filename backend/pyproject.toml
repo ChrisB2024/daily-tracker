@@ -22,6 +22,7 @@ dependencies = [
     "anthropic>=0.25",
     "elevenlabs>=0.2",
     "apscheduler>=3.10",
+    "pywebpush>=2.0",
 ]
 
 [tool.setuptools]

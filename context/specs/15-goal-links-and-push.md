@@ -51,7 +51,7 @@ notch. Verified in Chromium: the worker registers at scope `/`, the manifest
 parses as standalone, every icon serves. **The Home Screen install itself
 needs Chris's iPhone.**
 
-### Unit 23 — Push plumbing
+### Unit 23 — Push plumbing — shipped 2026-09-24
 
 **Builds:** `pywebpush` dependency; a `push_subscriptions` table (endpoint,
 keys, created_at — additive migration); `GET /push/public-key`,
@@ -75,6 +75,13 @@ acceptable under S2; `architecture.md` records it when this lands.
 **Done when:** "Send test" on the installed iPhone app produces a notification
 · disabling removes the subscription · an expired subscription is deleted on
 the next send.
+
+*As built:* `GET /push/config` (not `/push/public-key`) returns `enabled` and
+the public key together. Endpoints must be `https://`. The Notifications panel
+sits at the top of Goals. **Verified end to end with real cryptography**: real
+VAPID keys, a Python-generated device key pair and a local stand-in push
+service — the payload decrypted to the expected JSON and the VAPID JWT
+verified against the public key. The iPhone delivery itself is Chris's check.
 
 ### Unit 24 — The three notifications
 

@@ -26,6 +26,7 @@ os.environ["CLAUDE_API_KEY"] = ""
 os.environ["ELEVENLABS_API_KEY"] = ""
 os.environ["SMTP_USER"] = ""
 os.environ["SMTP_PASSWORD"] = ""
+os.environ["VAPID_PRIVATE_KEY"] = ""
 
 
 def _drop_stale_test_databases():
@@ -76,7 +77,7 @@ async def clean_tables():
 
     async with AsyncSessionLocal() as s:
         await s.execute(
-            text("TRUNCATE tasks, reps, rep_types, goals, weekly_summaries RESTART IDENTITY CASCADE")
+            text("TRUNCATE push_subscriptions, tasks, reps, rep_types, goals, weekly_summaries RESTART IDENTITY CASCADE")
         )
         await s.commit()
     yield

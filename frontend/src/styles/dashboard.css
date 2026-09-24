@@ -1920,3 +1920,35 @@ h3 {
   font-family: ui-monospace, Menlo, monospace;
   font-size: 0.85rem;
 }
+
+/* Notifications panel on Goals (Build Plan 3, Unit 23) */
+
+.push-settings {
+  margin-bottom: 2rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.push-settings h3 {
+  margin: 0 0 0.75rem;
+}
+
+.push-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.push-status {
+  color: var(--fg);
+  font-size: 0.9rem;
+}
+
+.push-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
+}

@@ -34,7 +34,8 @@ unauthenticated API (see `architecture.md` Security invariant S2).
 - The import direction is one-way: `models` ← `schemas` ← `routers` → `services`
   → `models`. **A service never imports a router. A model never imports
   anything from the app but `db.base`.**
-- Third-party SDKs are reachable only from `app/services/`. A router that wants
+- Third-party SDKs are reachable only from `app/services/` (`pywebpush` only
+  from `services/push.py`). A router that wants
   Google Calendar imports `GoogleCalendarClient`; it never touches
   `googleapiclient`.
 - Metric computation lives in `app/services/summary.py` (reps) and
