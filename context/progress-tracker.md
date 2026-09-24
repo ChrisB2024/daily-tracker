@@ -24,7 +24,9 @@ until Unit 20 retires its UI. Its data is kept forever.
 **Unit 18 (day graph) merged to `main` on 2026-09-24** at Chris's
 instruction. After Railway finishes deploying, refresh once — the graph calls
 the new `/tasks/graph`. Still to check on real hardware: the halo glow and a
-black background on Chris's Mac (only verified under SwiftShader).
+black background on Chris's Mac — **confirmed by Chris 2026-09-24**.
+
+**Unit 19 (week view) shipped on the redesign branch, not yet merged.**
 
 **Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
@@ -211,6 +213,15 @@ real calendar. This was the redesign's first contact with real Google.
   state, back to Today works, no console errors. Build passes; no new lint
   errors.
 
+- **Unit 19 — Week view by goal** (2026-09-24, redesign branch).
+  `GET /tasks/graph?week_start=` (snapped to Monday); `DayGraph.jsx` renamed
+  `TaskGraph.jsx` with a Day / Week switch and a ranked "Most time this week"
+  list; per-goal `color_slot` so colours are stable across views. 2 new tests,
+  82/82. Verified in Chromium against a seeded week: ranking and minutes
+  correct (3h15 of 3h45 etc.), ties ordered by name, next week disabled on the
+  current week, previous week empty state, switching back to Day, no console
+  errors. Build passes; no new lint errors.
+
 ## In Progress
 
 Nothing.
@@ -224,7 +235,7 @@ Nothing.
 16. ~~Check off, 00:00 sweep, removal reasons~~ — shipped 2026-09-24
 17. ~~Today becomes the daily task checklist~~ — shipped 2026-09-24
 18. ~~Day graph~~ — shipped and merged 2026-09-24
-19. Week graph + goal ranking by time spent
+19. ~~Week view by goal~~ — shipped 2026-09-24 (branch)
 20. Retire Schedule, rep types, chains and the debrief; rep history stays read-only
 
 **Build Plan 1** (all shipped) — the build plan is `context/specs/00-build-plan.md` — 13 units, approved
@@ -581,7 +592,8 @@ in `architecture.md`.
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
 first — it supersedes the notes below on direction. Units 14–16 are shipped on
-`main`, Unit 18 included. Next action: Unit 19 (week view by goal).
+`main`, Unit 18 included; Unit 19 is on the branch. Next action: merge
+Unit 19 when Chris says so, then Unit 20 (retire the rep UI).
 
 **Local test setup in a cloud container:** `conftest.py` connects as role
 `chrisilias` with no password. There, start Postgres, create that role with a

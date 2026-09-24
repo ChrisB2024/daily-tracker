@@ -144,8 +144,10 @@ them into `Dashboard` is the intended next change, not a rewrite.
   `All day · 24h`. Its CSS is shared with `.rep` through combined selectors,
   not copied. No delete button: tasks are removed by deleting the calendar
   event.
-- **Day graph** — `DayGraph` (Unit 18), reached by clicking Today's date, not
-  from Nav. A `3d-force-graph` WebGL canvas, 70vh, lazy-loaded. Goals are
+- **Task graph** — `TaskGraph` (Units 18–19), reached by clicking Today's
+  date, not from Nav. A Day / Week switch (`.graph-mode`); the legend is a
+  ranked list of goals by time completed. Goal colours come from the API's
+  `color_slot`, fixed per goal, never from rank. A `3d-force-graph` WebGL canvas, 70vh, lazy-loaded. Goals are
   labelled hubs coloured `--goal-1…6` by rank of time spent; completed tasks
   glow in their goal's colour, missed are `--missed` wireframes, pending are
   `--pending` with no glow. WebGL reads the tokens from `:root` at runtime —
