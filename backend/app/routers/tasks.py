@@ -3,6 +3,7 @@ Tasks — calendar events tagged to a goal (calendar-first redesign).
 
 Routes:
     GET  /tasks                     tasks for one day (?date=YYYY-MM-DD, default today)
+    GET  /tasks/graph               goals and tasks as nodes and links (?date=, default today)
     POST /tasks/sync                pull one day from Google Calendar now (?date=, default today)
     POST /tasks/{id}/complete       check a task off; its event turns green
     POST /tasks/{id}/cancel-reason  say why a removed task was removed
@@ -22,8 +23,9 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.db.session import get_session
 from app.models import Task, TaskStatus
-from app.schemas.task import TaskCancelReason, TaskRead, TaskSyncRead
+from app.schemas.task import TaskCancelReason, TaskGraphRead, TaskRead, TaskSyncRead
 from app.services.google_calendar import GoogleCalendarClient
+from app.services.task_graph import get_task_graph
 from app.services.task_sync import sync_tasks
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -57,6 +59,15 @@ def _read(task: Task) -> TaskRead:
         **{f: getattr(task, f) for f in TaskRead.model_fields if f != "goal_title"},
         goal_title=task.goal.title,
     )
+
+
+@router.get("/graph", response_model=TaskGraphRead)
+async def day_graph(
+    on: date | None = Query(None, alias="date"),
+    session: AsyncSession = Depends(get_session),
+):
+    day = on or _today()
+    return await get_task_graph(session, day, day)
 
 
 @router.post("/sync", response_model=TaskSyncRead)

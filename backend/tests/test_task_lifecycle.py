@@ -164,3 +164,46 @@ async def test_blank_or_long_reason_is_rejected(client, make_task):
 async def test_unknown_task_is_404(client):
     missing = "00000000-0000-0000-0000-000000000000"
     assert (await client.post(f"/tasks/{missing}/complete")).status_code == 404
+
+
+# --- graph (Unit 18) ------------------------------------------------------------------
+
+
+async def test_day_graph_links_tasks_to_goals_and_sizes_goals_by_completed_time(
+    client, session, factory
+):
+    a = (await factory.goal("Angle")).id
+    h = (await factory.goal("Hitwin")).id
+    day = today()
+
+    def task(goal_id, event_id, minutes, status):
+        return Task(
+            goal_id=goal_id, calendar_event_id=event_id, title=event_id,
+            scheduled_date=day, duration_minutes=minutes, status=status,
+        )
+
+    session.add_all([
+        task(h, "h1", 90, TaskStatus.completed),
+        task(h, "h2", 30, TaskStatus.missed),
+        task(a, "a1", 45, TaskStatus.completed),
+        task(a, "a2", 60, TaskStatus.cancelled),  # deleted event: not drawn
+    ])
+    await session.commit()
+
+    r = await client.get("/tasks/graph", params={"date": day.isoformat()})
+    assert r.status_code == 200
+    body = r.json()
+    goals = [n for n in body["nodes"] if n["kind"] == "goal"]
+    tasks = [n for n in body["nodes"] if n["kind"] == "task"]
+
+    assert [g["label"] for g in goals] == ["Hitwin", "Angle"], "most time first"
+    assert goals[0]["minutes_completed"] == 90 and goals[0]["minutes_planned"] == 120
+    assert goals[0]["task_count"] == 2 and goals[0]["completed_count"] == 1
+    assert sorted(t["label"] for t in tasks) == ["a1", "h1", "h2"], "cancelled left out"
+    assert {"source": f"task:{tasks[0]['id'][5:]}", "target": f"goal:{tasks[0]['goal_id']}"} in body["links"]
+    assert len(body["links"]) == 3
+
+
+async def test_empty_day_graph(client):
+    r = await client.get("/tasks/graph", params={"date": "2020-01-01"})
+    assert r.status_code == 200 and r.json()["nodes"] == [] and r.json()["links"] == []

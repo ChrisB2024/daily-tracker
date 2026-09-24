@@ -49,3 +49,31 @@ class TaskSyncRead(BaseModel):
     untagged: int
     rep_events_skipped: int
     unmatched: list[str]
+
+
+class TaskGraphNode(BaseModel):
+    id: str  # "goal:<uuid>" or "task:<uuid>" — goal and task ids never collide
+    kind: str  # "goal" | "task"
+    goal_id: str
+    label: str
+    # goal nodes
+    task_count: int | None = None
+    completed_count: int | None = None
+    minutes_completed: int | None = None
+    minutes_planned: int | None = None
+    # task nodes
+    status: TaskStatus | None = None
+    duration_minutes: int | None = None
+    scheduled_date: date | None = None
+
+
+class TaskGraphLink(BaseModel):
+    source: str
+    target: str
+
+
+class TaskGraphRead(BaseModel):
+    start_date: date
+    end_date: date
+    nodes: list[TaskGraphNode]
+    links: list[TaskGraphLink]

@@ -15,6 +15,16 @@
   --heat-1: #4ade80;
   --heat-2: #22c55e;
   --heat-3: #16a34a;
+
+  /* Goal identity in the day graph — one hue per goal cluster, in the Lobe
+     Atlas range. Deliberately clear of --completed and --missed, which mean
+     done and not done. */
+  --goal-1: #e8eef7;
+  --goal-2: #f2d49b;
+  --goal-3: #8ec5ff;
+  --goal-4: #c4a7ff;
+  --goal-5: #7fe0d4;
+  --goal-6: #f5a3c7;
 }
 
 * {
@@ -1736,3 +1746,108 @@ h3 {
   color: var(--muted);
   cursor: default;
 }
+
+/* Day graph (Unit 18) */
+
+.today-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.today-link:hover .today-link-hint {
+  color: var(--fg);
+}
+
+.today-link-hint {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.day-graph-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.day-graph-header h2 {
+  margin: 0;
+}
+
+.day-graph-date {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.day-graph-nav {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 6px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.day-graph-nav:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.day-graph-hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-family: ui-monospace, Menlo, monospace;
+}
+
+.day-graph-canvas {
+  width: 100%;
+  height: 70vh;
+  min-height: 360px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.day-graph-legend {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.day-graph-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.day-graph-legend span:last-child {
+  color: var(--muted);
+}
+
+.day-graph-swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.goal-color-1 { background: var(--goal-1); }
+.goal-color-2 { background: var(--goal-2); }
+.goal-color-3 { background: var(--goal-3); }
+.goal-color-4 { background: var(--goal-4); }
+.goal-color-5 { background: var(--goal-5); }
+.goal-color-6 { background: var(--goal-6); }
