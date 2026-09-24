@@ -26,7 +26,8 @@ instruction. After Railway finishes deploying, refresh once — the graph calls
 the new `/tasks/graph`. Still to check on real hardware: the halo glow and a
 black background on Chris's Mac — **confirmed by Chris 2026-09-24**.
 
-**Unit 19 (week view) shipped on the redesign branch, not yet merged.**
+**Unit 19 (week view) merged to `main` on 2026-09-24** at Chris's
+instruction.
 
 **Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
@@ -235,7 +236,7 @@ Nothing.
 16. ~~Check off, 00:00 sweep, removal reasons~~ — shipped 2026-09-24
 17. ~~Today becomes the daily task checklist~~ — shipped 2026-09-24
 18. ~~Day graph~~ — shipped and merged 2026-09-24
-19. ~~Week view by goal~~ — shipped 2026-09-24 (branch)
+19. ~~Week view by goal~~ — shipped and merged 2026-09-24
 20. Retire Schedule, rep types, chains and the debrief; rep history stays read-only
 
 **Build Plan 1** (all shipped) — the build plan is `context/specs/00-build-plan.md` — 13 units, approved
@@ -592,8 +593,7 @@ in `architecture.md`.
 
 **Redesign in progress.** Read `context/specs/14-calendar-first-redesign.md`
 first — it supersedes the notes below on direction. Units 14–16 are shipped on
-`main`, Unit 18 included; Unit 19 is on the branch. Next action: merge
-Unit 19 when Chris says so, then Unit 20 (retire the rep UI).
+`main`, Units 18 and 19 included. Next action: Unit 20 (retire the rep UI).
 
 **Local test setup in a cloud container:** `conftest.py` connects as role
 `chrisilias` with no password. There, start Postgres, create that role with a
