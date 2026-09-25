@@ -34,8 +34,8 @@ instruction. **Build Plan 2 is complete.**
 
 **Build Plan 3** (`context/specs/15-goal-links-and-push.md`, Units 21–24):
 goal links in the week graph, then push notifications to Chris's iPhone.
-**Units 21–24 are shipped on the branch — Build Plan 3 is complete there,
-not yet merged.** Push needs three Railway variables before it works in
+**Units 21–24 merged to `main` on 2026-09-25** at Chris's instruction —
+Build Plan 3 is complete. Push needs three Railway variables before it works in
 production — see Unit 23 below.
 
 **Units 14–17 merged to `main` on 2026-09-24** at
