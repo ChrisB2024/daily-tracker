@@ -35,8 +35,9 @@ instruction. **Build Plan 2 is complete.**
 **Build Plan 3** (`context/specs/15-goal-links-and-push.md`, Units 21–24):
 goal links in the week graph, then push notifications to Chris's iPhone.
 **Units 21–24 merged to `main` on 2026-09-25** at Chris's instruction —
-Build Plan 3 is complete. Push needs three Railway variables before it works in
-production — see Unit 23 below.
+Build Plan 3 is complete. **Push is live in production** (2026-09-24): VAPID
+variables set on Railway, the three notification jobs scheduled, and Chris
+installed the app on his iPhone, subscribed, and received a test push.
 
 **Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
@@ -253,7 +254,7 @@ real calendar. This was the redesign's first contact with real Google.
   icons and a 180px `apple-touch-icon`, iOS meta tags, and a service worker
   with no caching and no fetch handler (a deploy can never be masked by a
   stale cache). Verified in Chromium: worker active at `/`, manifest standalone,
-  icons 200. Not yet installed on the iPhone.
+  icons 200. Installed on Chris's iPhone 2026-09-24.
 
 - **Unit 23 — Push plumbing** (2026-09-24, branch). `pywebpush`;
   `push_subscriptions` table (revision `7e91a98edff9`, additive, round-trips);
@@ -264,10 +265,11 @@ real calendar. This was the redesign's first contact with real Google.
   steps when not installed. 6 new tests (89/89) including one proving the
   script's keys are a matching pair. Real-crypto end-to-end against a local
   stand-in push service: decrypted payload and verified VAPID signature.
-  **To go live Chris must:** run `python scripts/generate_vapid_keys.py`
-  once locally and add `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and
-  `VAPID_SUBJECT` (his own `mailto:`) to the Railway service. Without them
-  the panel says push isn't set up and nothing else changes.
+  **Live 2026-09-24:** keys generated with `python scripts/generate_vapid_keys.py`
+  and added to Railway as `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and
+  `VAPID_SUBJECT` (his own `mailto:`). Without them the panel says push isn't
+  set up and nothing else changes. Re-generating the pair invalidates every
+  subscription — the phone must re-enable notifications.
   Local note: `pywebpush` → `http-ece` does not build against this cloud
   container's Debian setuptools; tests ran in a venv (Docker upgrades
   setuptools first, so Railway is unaffected).
