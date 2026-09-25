@@ -198,20 +198,17 @@ export default function TaskGraph({ initialDate, initialMode = "day", onBack }) 
         }
         return group;
       })
-      // Task → goal lines take the goal's colour. Goal ↔ goal "worked the same
-      // day" lines (week view, Unit 21) are neutral, and thicker the more days
-      // the two goals shared.
+      // Task → goal lines take the goal's colour. Goal ↔ goal lines join goals
+      // Chris marked as related on the Goals page (Unit 26): neutral, thicker.
       .linkColor((l) =>
-        l.kind === "shared_day"
+        l.kind === "related"
           ? tokens.muted
           : goalColor[typeof l.target === "object" ? l.target.goal_id : ""],
       )
-      .linkOpacity(0.35)
-      .linkWidth((l) => (l.kind === "shared_day" ? 0.4 + l.weight * 0.35 : 0))
+      .linkOpacity(0.45)
+      .linkWidth((l) => (l.kind === "related" ? 1.2 : 0))
       .linkLabel((l) =>
-        l.kind === "shared_day"
-          ? `${l.source.label} & ${l.target.label}: worked the same day on ${l.weight} day${l.weight === 1 ? "" : "s"}`
-          : "",
+        l.kind === "related" ? `${l.source.label} ↔ ${l.target.label}: related goals` : "",
       )
       // Frame every cluster once the layout has settled.
       .cooldownTicks(120)
@@ -222,12 +219,12 @@ export default function TaskGraph({ initialDate, initialMode = "day", onBack }) 
         links: data.links.map((l) => ({ ...l })),
       });
 
-    // Shared-day links are long and loose, so clusters stay readable as
-    // clusters instead of collapsing into one ball.
+    // Related goals sit near each other but keep their own clusters: the
+    // goal ↔ goal link is long and weaker than a task's pull to its goal.
     graph
       .d3Force("link")
-      .distance((l) => (l.kind === "shared_day" ? 140 : 30))
-      .strength((l) => (l.kind === "shared_day" ? 0.05 : 1));
+      .distance((l) => (l.kind === "related" ? 110 : 30))
+      .strength((l) => (l.kind === "related" ? 0.2 : 1));
 
     const onResize = () => graph.width(el.clientWidth).height(el.clientHeight);
     window.addEventListener("resize", onResize);

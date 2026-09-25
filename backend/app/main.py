@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from app.routers import goals, rep_types, reps, summary, debrief, history, tasks, push
+from app.routers import goals, rep_types, reps, summary, debrief, history, tasks, push, goal_relations
 from app.scheduler import init_scheduler, scheduler
 
 # Nothing configured logging, so app loggers emitted nothing under uvicorn's
@@ -53,6 +53,7 @@ app.include_router(debrief.router)
 app.include_router(history.router)
 app.include_router(tasks.router)
 app.include_router(push.router)
+app.include_router(goal_relations.router)
 
 
 @app.get("/healthz")

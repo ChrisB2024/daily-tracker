@@ -39,6 +39,10 @@ Build Plan 3 is complete. **Push is live in production** (2026-09-24): VAPID
 variables set on Railway, the three notification jobs scheduled, and Chris
 installed the app on his iPhone, subscribed, and received a test push.
 
+**Units 25–26 (related goals) merged to `main` on 2026-09-25** at Chris's
+instruction. They replace Unit 21's same-day links, which misread what Chris
+wanted.
+
 **Units 14–17 merged to `main` on 2026-09-24** at
 Chris's instruction, so the calendar-first flow is live (Railway runs
 revision `8fcad7e710dc` on deploy; Vercel ships the new Today). **Confirmed
@@ -282,6 +286,14 @@ real calendar. This was the redesign's first contact with real Google.
   Server with VAPID set logged all three next fire times in New York time;
   the week-graph launch link opens in Week mode.
 
+- **Units 25–26 — Related goals** (2026-09-25, branch). Chris marks goals as
+  related on the Goals page; the graph draws a line between their hubs.
+  `goal_relations` table (migration `b016cac9046d`, round-trips), CRUD at
+  `/goal-relations`, hard goal delete cleans them up, `shared_day` links
+  removed. 6 new tests replace Unit 21's, 103/103. Verified in Chromium end
+  to end: picker → chip on both cards → one related link in the graph, none
+  for a goal merely worked the same day, × removes it.
+
 ## In Progress
 
 Nothing.
@@ -513,6 +525,11 @@ Decisions. None open.
   async clients. · Traded away: a thread per external call.
 
 ## Model Corrections
+
+- Expected "lines between goals" to mean a pattern the tracker could detect,
+  and offered three detectable options → Chris meant goals that *are* related,
+  a fact only he knows → now assume a relationship in the product is a
+  statement Chris makes, and ask how he will make it before inferring one.
 
 - Expected three.js's bloom pass to give the Lobe Atlas glow → in headless
   Chromium it lifted the entire canvas to grey, with or without an

@@ -13,6 +13,7 @@ export default defineConfig({
       '/history': 'http://localhost:8000',
       '/tasks': 'http://localhost:8000',
       '/push': 'http://localhost:8000',
+      '/goal-relations': 'http://localhost:8000',
     },
   },
 })

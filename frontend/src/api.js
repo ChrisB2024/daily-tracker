@@ -241,3 +241,25 @@ export async function sendTestPush() {
   if (!response.ok) throw new Error("Failed to send a test notification");
   return response.json();
 }
+
+// Goal relations (Unit 26) — which goals Chris says are related
+export async function getGoalRelations() {
+  const response = await fetch(apiUrl(`/goal-relations`));
+  if (!response.ok) throw new Error("Failed to fetch related goals");
+  return response.json();
+}
+
+export async function createGoalRelation(goalAId, goalBId) {
+  const response = await fetch(apiUrl(`/goal-relations`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ goal_a_id: goalAId, goal_b_id: goalBId }),
+  });
+  if (!response.ok) throw new Error("Failed to relate the goals");
+  return response.json();
+}
+
+export async function deleteGoalRelation(relationId) {
+  const response = await fetch(apiUrl(`/goal-relations/${relationId}`), { method: "DELETE" });
+  if (!response.ok) throw new Error("Failed to remove the relation");
+}

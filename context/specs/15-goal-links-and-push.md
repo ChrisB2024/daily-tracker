@@ -107,3 +107,35 @@ when push is configured.
 
 - Should notification times be editable in the app, or are fixed times fine?
   Fixed until asked.
+
+## Correction — Units 25–26: related goals, not same-day goals
+
+Chris, 2026-09-25, after Unit 21 shipped: "the goals line is about goals that
+are related, not different goals being tied to each other." Unit 21's
+"worked the same day" reading was wrong and is **removed**.
+
+| Question | Answer |
+| -------- | ------ |
+| How does the tracker know goals are related? | **Chris marks them on the Goals page.** Never inferred from dates or titles. |
+| The same-day lines? | **Removed.** |
+
+### Unit 25 — Goal relations (backend) — shipped 2026-09-25
+
+`goal_relations` table (additive migration `b016cac9046d`): one row per pair,
+stored with the smaller id first, enforced by `UNIQUE (goal_a_id, goal_b_id)`
+and `CHECK (goal_a_id < goal_b_id)`. `GET/POST /goal-relations`,
+`DELETE /goal-relations/{id}`; 400 for a goal related to itself, 404 for an
+unknown goal, 409 if the pair already exists in either order. A hard goal
+delete removes its relations first. The graph drops `shared_day` links and
+draws a `related` link between two goal hubs, in the day and the week view,
+whenever both goals are on screen.
+
+### Unit 26 — Related goals on the Goals page — shipped 2026-09-25
+
+Each goal card shows "Related:" with a chip per related goal (× removes it)
+and a picker to add one from the other non-archived goals. The graph draws
+related links neutral and thicker than task links, pulls related goals near
+each other while keeping their clusters, and names both goals on hover.
+Verified in Chromium: relating Hitwin and Angle through the picker showed the
+chip on both cards and one link in the graph; Physical Exercise, worked the
+same day, got none; × removed the link.

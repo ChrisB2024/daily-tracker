@@ -5,6 +5,9 @@ import {
   updateGoal,
   deleteGoal,
   deleteGoalHard,
+  getGoalRelations,
+  createGoalRelation,
+  deleteGoalRelation,
 } from "../api";
 import PushSettings from "./PushSettings";
 
@@ -14,6 +17,7 @@ import PushSettings from "./PushSettings";
 
 export default function GoalsManagement({ onBack }) {
   const [goals, setGoals] = useState([]);
+  const [relations, setRelations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showNewGoalForm, setShowNewGoalForm] = useState(false);
@@ -29,8 +33,9 @@ export default function GoalsManagement({ onBack }) {
   async function loadGoals() {
     try {
       setLoading(true);
-      const data = await getGoals();
+      const [data, rels] = await Promise.all([getGoals(), getGoalRelations()]);
       setGoals(data);
+      setRelations(rels);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -232,6 +237,12 @@ export default function GoalsManagement({ onBack }) {
                     <p className="goal-tag" title="Start a calendar event with this to tag it">
                       [{goal.title}]
                     </p>
+                    <RelatedGoals
+                      goal={goal}
+                      goals={goals}
+                      relations={relations}
+                      onChange={loadGoals}
+                    />
                     {goal.description && <p className="goal-desc">{goal.description}</p>}
                     {goal.target_date && (
                       <p className="goal-date">Target: {goal.target_date}</p>
@@ -270,6 +281,74 @@ export default function GoalsManagement({ onBack }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+// Which goals this one is related to (Unit 26). The graph draws a line between
+// related goals' hubs — only because Chris said so here, never inferred.
+function RelatedGoals({ goal, goals, relations, onChange }) {
+  const byId = Object.fromEntries(goals.map((g) => [g.id, g]));
+  const mine = relations
+    .filter((r) => r.goal_a_id === goal.id || r.goal_b_id === goal.id)
+    .map((r) => ({ id: r.id, other: byId[r.goal_a_id === goal.id ? r.goal_b_id : r.goal_a_id] }))
+    .filter((r) => r.other);
+  const taken = new Set(mine.map((r) => r.other.id));
+  const candidates = goals.filter(
+    (g) => g.id !== goal.id && g.status !== "archived" && !taken.has(g.id),
+  );
+
+  async function add(otherId) {
+    if (!otherId) return;
+    try {
+      await createGoalRelation(goal.id, otherId);
+      onChange();
+    } catch (err) {
+      alert("Failed: " + err.message);
+    }
+  }
+
+  async function remove(relationId) {
+    try {
+      await deleteGoalRelation(relationId);
+      onChange();
+    } catch (err) {
+      alert("Failed: " + err.message);
+    }
+  }
+
+  return (
+    <div className="related-goals">
+      <span className="related-label">Related:</span>
+      {mine.length === 0 && <span className="related-none">none</span>}
+      {mine.map((r) => (
+        <span key={r.id} className="related-chip">
+          {r.other.title}
+          <button
+            className="related-remove"
+            onClick={() => remove(r.id)}
+            title={`Not related to ${r.other.title}`}
+            aria-label={`Remove relation to ${r.other.title}`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      {candidates.length > 0 && (
+        <select
+          className="related-add"
+          value=""
+          onChange={(e) => add(e.target.value)}
+          aria-label={`Relate ${goal.title} to another goal`}
+        >
+          <option value="">+ related goal…</option>
+          {candidates.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.title}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }

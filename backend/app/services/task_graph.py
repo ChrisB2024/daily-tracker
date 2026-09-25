@@ -9,9 +9,9 @@ frontend only renders:
     task node   one per task, sized by its duration
     link        task → its goal (kind "task"). Tasks sharing a goal are joined
                 through it, which is what makes each goal read as a cluster.
-                goal ↔ goal (kind "shared_day", ranges longer than a day only):
-                both goals had a completed task on the same day; weight = the
-                number of such days (Unit 21).
+                goal ↔ goal (kind "related"): the two goals are related in
+                goal_relations — Chris's own statement (Unit 25). Drawn only
+                when both goals appear in the range.
 
 Cancelled tasks are left out: the event was deleted, so it was never work.
 Missed tasks are kept — a miss is evidence and is never hidden.
@@ -21,15 +21,13 @@ Metrics are computed here, at read time, and never stored.
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
 from datetime import date
-from itertools import combinations
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Goal, Task, TaskStatus
+from app.models import Goal, GoalRelation, Task, TaskStatus
 
 # How many --goal-N colour tokens the frontend defines.
 GOAL_COLOR_COUNT = 6
@@ -95,7 +93,13 @@ async def get_task_graph(session: AsyncSession, start: date, end: date) -> dict:
         )
         links.append({"source": f"task:{t.id}", "target": f"goal:{t.goal_id}", "kind": "task"})
 
-    links.extend(_shared_day_links(tasks) if start != end else [])
+    # Related goals: one line between the two hubs, when both are on screen.
+    relations = (await session.execute(select(GoalRelation))).scalars().all()
+    for r in relations:
+        if r.goal_a_id in goals and r.goal_b_id in goals:
+            links.append(
+                {"source": f"goal:{r.goal_a_id}", "target": f"goal:{r.goal_b_id}", "kind": "related"}
+            )
 
     # Most time spent first, so the frontend can colour goals in a stable order
     # and Unit 19 can rank them without re-sorting.
@@ -110,25 +114,3 @@ async def get_task_graph(session: AsyncSession, start: date, end: date) -> dict:
         "links": links,
     }
 
-
-def _shared_day_links(tasks) -> list[dict]:
-    """
-    goal ↔ goal links for goals that were both worked on the same day, where
-    "worked" means at least one completed task. Skipped for a single day: every
-    goal in a day graph that has completed work would link to every other.
-    """
-    goals_by_day: dict[date, set] = defaultdict(set)
-    for t in tasks:
-        if t.status == TaskStatus.completed:
-            goals_by_day[t.scheduled_date].add(t.goal_id)
-
-    shared_days: Counter = Counter()
-    for goal_ids in goals_by_day.values():
-        # Sorted so (a, b) and (b, a) count as one pair.
-        for a, b in combinations(sorted(goal_ids, key=str), 2):
-            shared_days[(a, b)] += 1
-
-    return [
-        {"source": f"goal:{a}", "target": f"goal:{b}", "kind": "shared_day", "weight": n}
-        for (a, b), n in sorted(shared_days.items(), key=lambda kv: (-kv[1], str(kv[0])))
-    ]
