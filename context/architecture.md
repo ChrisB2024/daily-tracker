@@ -14,13 +14,13 @@ code consistently follows); each one that the code currently breaks is listed in
 | ORM | SQLAlchemy 2.x async + asyncpg | Typed `Mapped[]` models; async driver matches the framework. |
 | Migrations | Alembic, async `env.py` | `env.py` drives the sync migration API through `run_sync()` and reads the same `DATABASE_URL` as the app, so there is one source of truth for connection config. |
 | Database | Postgres | Native UUID, `Date`/`Time` columns, enum types. Data is relational (Goal → RepType → Rep) with no document-shaped payloads. |
-| Frontend | React 19 + Vite, no router, no state library | One user, seven views, all state fetched per view. A router would add deep-linking nobody asked for. |
+| Frontend | React 19 + Vite, no router, no state library (graphs: `3d-force-graph` + three.js, lazy-loaded) | One user, seven views, all state fetched per view. A router would add deep-linking nobody asked for. |
 | Styling | One hand-written CSS file with `:root` custom properties | 1524 lines, semantic kebab-case class names. No Tailwind, no CSS modules. |
 | Calendar | Google Calendar API v3 (`google-api-python-client`) | Scoped to `calendar.events`. The mirror for reps (written, never read); the source of planned work for tasks (read, recoloured only). |
 | LLM | `anthropic` SDK, model `claude-opus-4-8` | Generates the weekly debrief prose from aggregated counts. |
 | TTS | `elevenlabs` SDK, `eleven_turbo_v2_5`, voice `21m00Tcm4TlvDq8ikWAM` | Audio debrief. |
 | Email | `smtplib` + Gmail SMTP (app password) | Stopgap delivery channel for the Sunday debrief. |
-| Scheduler | APScheduler `AsyncIOScheduler`, started in FastAPI's `startup` hook | In-process, two jobs since Unit 20: the 00:00 task sweep and the 15-minute calendar sync. No external cron, no worker process. |
+| Scheduler | APScheduler `AsyncIOScheduler`, started in FastAPI's `startup` hook | In-process: the 00:00 task sweep, the 15-minute calendar sync, and (when push is configured, Unit 24) three notification jobs — 08:00, 21:00, Sunday 20:00. No external cron, no worker process. |
 | Deploy | Docker on Railway; frontend on Vercel, both auto-deploying from `main` | `CMD` runs `alembic upgrade head && uvicorn` on port 8000 — a failed migration stops the container rather than booting against the old schema, which the README and the Vite dev proxy now match. |
 
 ## Ownership Map
@@ -85,7 +85,8 @@ binding rather than advisory.
   writes; S2 applies to it.
 - **Environment variables** — every secret: `DATABASE_URL`,
   `GOOGLE_CLIENT_ID` / `_SECRET` / `_REFRESH_TOKEN`, `CLAUDE_API_KEY`,
-  `ELEVENLABS_API_KEY`, `SMTP_USER` / `_PASSWORD`. Loaded once into a
+  `ELEVENLABS_API_KEY`, `SMTP_USER` / `_PASSWORD`, and since Unit 23
+  `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`. Loaded once into a
   module-level `Settings` singleton in `config.py`. `backend/.env` is gitignored;
   production values live in Railway's environment.
 - **Google Calendar** — for reps, the display copy of rep state; the event
@@ -100,6 +101,12 @@ binding rather than advisory.
   of data. It is regenerated on demand instead.
 - **Nowhere** — debrief prose and audio, chains, scores, PRs, rates. All
   ephemeral or recomputed.
+
+- **Postgres, `push_subscriptions`** (Unit 23) — one row per device that
+  receives notifications: the push-service `endpoint` (UNIQUE) and the
+  browser's `p256dh` / `auth` keys. Allowed under S2 because a subscription
+  only *addresses* the phone; sending requires the VAPID private key, which is
+  only in the environment. A 404/410 from the push service deletes the row.
 
 **Never stored in Postgres:** secrets or third-party tokens of any kind; audio
 blobs; generated debrief text; any computed metric. The Google refresh token
@@ -154,6 +161,7 @@ via `PATCH`. Intentional — a paused domain can be resumed.
 | Google Calendar → API | semi-trusted → trusted | Since Unit 15. Event titles and times enter through `task_sync.parse_event`; only `[Goal]`-prefixed events on the primary calendar become rows, and only titles, dates, times and durations are stored — never descriptions, attendees or locations. `list_events` returns `None` on failure, never `[]`, so an outage cannot read as "everything was deleted". |
 | API → Anthropic | trusted → semi-trusted | API key from env. Week counts **and goal titles** are sent in the prompt. Rep notes are not. All exceptions caught and converted to an error string in the summary body. |
 | API → ElevenLabs | trusted → semi-trusted | API key from env. The debrief text, which contains goal titles, is sent. Failure returns empty bytes. |
+| API → push service (Apple / Google / Mozilla) | trusted → semi-trusted | Since Unit 23. `pywebpush` in `asyncio.to_thread`, signed with the VAPID private key from env, payload encrypted to the device's keys (aes128gcm), TTL 4h. Only the notification title, body and an in-app URL leave — at most task counts and goal titles. Failures log the HTTP status only, never the exception text. |
 | API → Gmail SMTP | trusted → semi-trusted | STARTTLS on port 587, app password from env. Recipient is always `settings.smtp_user` — the sender mails himself. |
 | `scripts/google_oauth.py` → 127.0.0.1:8080 | one-time local loopback | `InstalledAppFlow` with `open_browser=False`; refresh token printed to stdout for manual paste into `.env`. Exits non-zero if Google returns no refresh token. |
 
@@ -232,6 +240,9 @@ Non-Negotiables from `readme.md`, restated as checkable rules.
   request-path needs.
 - **Google OAuth** — `https://www.googleapis.com/auth/calendar.events`. No
   `calendar.readonly`, no `calendar` full scope, no other Google API.
+- **Web push** — one VAPID key pair, generated once by
+  `scripts/generate_vapid_keys.py`; the private key lives only in Railway.
+  Rotating it silently orphans every subscription.
 - **Gmail** — an app password, not the account password. Used to send to one
   recipient: the sender.
 - **Anthropic / ElevenLabs** — one key each, no org-admin key.

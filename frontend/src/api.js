@@ -210,3 +210,34 @@ export async function getTaskGraph({ date = null, weekStart = null } = {}) {
   if (!response.ok) throw new Error("Failed to fetch the graph");
   return response.json();
 }
+
+// Web push (Build Plan 3)
+export async function getPushConfig() {
+  const response = await fetch(apiUrl(`/push/config`));
+  if (!response.ok) throw new Error("Failed to load notification settings");
+  return response.json();
+}
+
+export async function savePushSubscription(subscription) {
+  const response = await fetch(apiUrl(`/push/subscribe`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(subscription),
+  });
+  if (!response.ok) throw new Error("Failed to turn on notifications");
+}
+
+export async function deletePushSubscription(endpoint) {
+  const response = await fetch(apiUrl(`/push/subscribe`), {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ endpoint }),
+  });
+  if (!response.ok) throw new Error("Failed to turn off notifications");
+}
+
+export async function sendTestPush() {
+  const response = await fetch(apiUrl(`/push/test`), { method: "POST" });
+  if (!response.ok) throw new Error("Failed to send a test notification");
+  return response.json();
+}

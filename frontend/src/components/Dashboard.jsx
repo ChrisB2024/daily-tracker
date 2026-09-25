@@ -19,16 +19,30 @@ import "../styles/dashboard.css";
 // three.js is large; load the graph only when a day is opened.
 const TaskGraph = lazy(() => import("./TaskGraph"));
 
+// A notification can open the app on a specific screen (Build Plan 3, Unit 24):
+// the weekly recap links to /?view=week-graph. Read once, on load.
+const LAUNCH_VIEW = new URLSearchParams(window.location.search).get("view");
+
+function localTodayIso() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export default function Dashboard() {
-  const [view, setView] = useState("today");
+  const [view, setView] = useState(LAUNCH_VIEW === "week-graph" ? "day-graph" : "today");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   // The day open in the graph view. Not in Nav: a day is reached by clicking it.
-  const [graphDate, setGraphDate] = useState(null);
+  const [graphDate, setGraphDate] = useState(
+    LAUNCH_VIEW === "week-graph" ? localTodayIso() : null,
+  );
+  const [graphMode, setGraphMode] = useState(LAUNCH_VIEW === "week-graph" ? "week" : "day");
 
   function openDayGraph(isoDate) {
     setGraphDate(isoDate);
+    setGraphMode("day");
     setView("day-graph");
   }
 
@@ -91,7 +105,11 @@ export default function Dashboard() {
 
       {view === "day-graph" && graphDate && (
         <Suspense fallback={<div className="loading">Loading…</div>}>
-          <TaskGraph initialDate={graphDate} onBack={() => setView("today")} />
+          <TaskGraph
+            initialDate={graphDate}
+            initialMode={graphMode}
+            onBack={() => setView("today")}
+          />
         </Suspense>
       )}
     </div>

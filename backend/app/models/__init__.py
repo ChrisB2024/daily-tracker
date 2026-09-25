@@ -5,6 +5,7 @@ from app.models.goal import Goal, GoalStatus
 from app.models.rep_type import RepType, RepTypeStatus
 from app.models.rep import Rep, RepStatus
 from app.models.task import Task, TaskStatus
+from app.models.push_subscription import PushSubscription
 from app.models.weekly_summary import WeeklySummary
 
 __all__ = [
@@ -16,5 +17,6 @@ __all__ = [
     "RepStatus",
     "Task",
     "TaskStatus",
+    "PushSubscription",
     "WeeklySummary",
 ]

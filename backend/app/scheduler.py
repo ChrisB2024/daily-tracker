@@ -1,5 +1,7 @@
 """
-Background jobs: the 00:00 task sweep and the 15-minute calendar → tasks sync.
+Background jobs: the 00:00 task sweep, the 15-minute calendar → tasks sync,
+and — when push is configured — three notifications (Build Plan 3, Unit 24):
+08:00 morning summary, 21:00 evening reminder, Sunday 20:00 weekly recap.
 
 The 23:59 rep sweep and the Sunday debrief email were retired in Unit 20 of the
 calendar-first redesign. Their services still exist — POST /reps/mark-missed
@@ -14,6 +16,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.config import settings
 from app.services.google_calendar import GoogleCalendarClient
+from app.services.notifications import (
+    send_evening_reminder,
+    send_morning_summary,
+    send_weekly_recap,
+)
 from app.services.task_sweep import sweep_missed_tasks
 from app.services.task_sync import sync_tasks
 from app.db.session import AsyncSessionLocal
@@ -61,6 +68,28 @@ async def run_task_sync():
         logger.exception("Task sync failed")
 
 
+def _notification_job(send):
+    """Wrap a services/notifications.py sender as a job with its own session."""
+
+    async def job():
+        try:
+            async with AsyncSessionLocal() as session:
+                await send(session, datetime.now(tz=settings.tz).date())
+        except Exception:
+            logger.exception("Notification job %s failed", send.__name__)
+
+    job.__name__ = f"run_{send.__name__}"
+    return job
+
+
+NOTIFICATION_JOBS = (
+    # (id, sender, cron fields in settings.tz)
+    ("morning_summary", send_morning_summary, {"hour": 8, "minute": 0}),
+    ("evening_reminder", send_evening_reminder, {"hour": 21, "minute": 0}),
+    ("weekly_recap", send_weekly_recap, {"day_of_week": "sun", "hour": 20, "minute": 0}),
+)
+
+
 def init_scheduler():
     """Initialize and start the background scheduler."""
     # Registered regardless of configuration: marking a task missed is product
@@ -88,10 +117,18 @@ def init_scheduler():
     else:
         logger.warning("Google Calendar not configured — task sync job not scheduled")
 
+    if settings.push_enabled:
+        for job_id, send, when in NOTIFICATION_JOBS:
+            scheduler.add_job(
+                _notification_job(send), "cron", id=job_id, replace_existing=True, **when
+            )
+    else:
+        logger.warning("Push not configured — notification jobs not scheduled")
+
     scheduler.start()
     # Log the resolved fire times, not the intent. This is the only way to catch
     # a timezone regression without waiting a day or a week to notice.
-    for job_id in ("task_sweep", "task_sync"):
+    for job_id in ("task_sweep", "task_sync", *(j[0] for j in NOTIFICATION_JOBS)):
         job = scheduler.get_job(job_id)
         if job is not None:
             logger.info("Scheduled %s — next run %s", job_id, job.next_run_time)

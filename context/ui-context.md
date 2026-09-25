@@ -164,6 +164,11 @@ them into `Dashboard` is the intended next change, not a rewrite.
 
 ## Icons
 
+**App icon** (Unit 22): `frontend/public/icon-192.png`, `icon-512.png` and
+`apple-touch-icon.png` — three glowing goal clusters in the `--goal-*` palette,
+one missed task as a red ring, on `--bg`. Regenerate all three together if the
+palette changes.
+
 No icon library. Status and actions are Unicode glyphs rendered as text:
 `○` pending, `✓` completed, `✗` missed, `✕` delete. `frontend/public/icons.svg`
 and `favicon.svg` exist and are not referenced by any component. Rep-type emoji
