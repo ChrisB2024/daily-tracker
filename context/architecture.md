@@ -108,6 +108,10 @@ binding rather than advisory.
   only *addresses* the phone; sending requires the VAPID private key, which is
   only in the environment. A 404/410 from the push service deletes the row.
 
+- **Postgres, `goal_relations`** (Unit 25) — pairs of goals Chris has marked
+  as related, one ordered row per pair. Not evidence: deleted freely, and
+  removed with a hard-deleted goal.
+
 **Never stored in Postgres:** secrets or third-party tokens of any kind; audio
 blobs; generated debrief text; any computed metric. The Google refresh token
 lives in the environment specifically so a database read cannot yield calendar
