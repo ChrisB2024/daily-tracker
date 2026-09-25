@@ -204,7 +204,6 @@ async def test_day_graph_links_tasks_to_goals_and_sizes_goals_by_completed_time(
         "source": f"task:{tasks[0]['id'][5:]}",
         "target": f"goal:{tasks[0]['goal_id']}",
         "kind": "task",
-        "weight": None,
     } in body["links"]
     assert len(body["links"]) == 3
 
@@ -258,37 +257,3 @@ async def test_graph_rejects_day_and_week_together(client):
     r = await client.get("/tasks/graph", params={"date": "2026-09-24", "week_start": "2026-09-21"})
     assert r.status_code == 400
 
-
-# --- shared-day goal links (Unit 21) ----------------------------------------------------
-
-
-async def test_week_links_goals_worked_on_the_same_day(client, session, factory):
-    from datetime import date as _date
-
-    a = (await factory.goal("Angle")).id
-    h = (await factory.goal("Hitwin")).id
-    p = (await factory.goal("Physical")).id
-    mon = _date(2026, 9, 21)
-
-    def task(goal_id, event_id, on, status=TaskStatus.completed):
-        return Task(goal_id=goal_id, calendar_event_id=event_id, title=event_id,
-                    scheduled_date=on, duration_minutes=30, status=status)
-
-    tue, wed = mon + timedelta(days=1), mon + timedelta(days=2)
-    session.add_all([
-        task(a, "a1", mon), task(h, "h1", mon),            # A–H on Monday
-        task(a, "a2", tue), task(h, "h2", tue),            # A–H on Tuesday
-        task(p, "p1", tue, TaskStatus.missed),             # missed: not "worked"
-        task(p, "p2", wed), task(h, "h3", wed, TaskStatus.pending),  # pending: not "worked"
-    ])
-    await session.commit()
-
-    body = (await client.get("/tasks/graph", params={"week_start": "2026-09-21"})).json()
-    shared = [l for l in body["links"] if l["kind"] == "shared_day"]
-    assert len(shared) == 1
-    assert {shared[0]["source"], shared[0]["target"]} == {f"goal:{a}", f"goal:{h}"}
-    assert shared[0]["weight"] == 2
-    assert all(l["kind"] == "task" for l in body["links"] if l not in shared)
-
-    day = (await client.get("/tasks/graph", params={"date": "2026-09-21"})).json()
-    assert all(l["kind"] == "task" for l in day["links"]), "no goal links in a day graph"

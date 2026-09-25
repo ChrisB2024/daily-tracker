@@ -71,8 +71,7 @@ class TaskGraphNode(BaseModel):
 class TaskGraphLink(BaseModel):
     source: str
     target: str
-    kind: str = "task"  # "task" (task → goal) | "shared_day" (goal ↔ goal)
-    weight: int | None = None  # shared_day only: days both goals were worked
+    kind: str = "task"  # "task" (task → goal) | "related" (goal ↔ goal, Unit 25)
 
 
 class TaskGraphRead(BaseModel):

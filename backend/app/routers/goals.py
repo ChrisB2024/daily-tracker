@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from app.config import settings
 from app.db.session import get_session
-from app.models import Goal, RepType, Rep, Task
+from app.models import Goal, GoalRelation, Rep, RepType, Task
 from app.models.goal import GoalStatus
 from app.schemas.goal import GoalCreate, GoalRead, GoalUpdate
 from app.services.google_calendar import GoogleCalendarClient
@@ -142,6 +142,12 @@ async def delete_goal(
             for event_id in event_ids:
                 await client.delete_event(event_id)
 
+        # Relations are statements about goals, not evidence — they go with it.
+        await session.execute(
+            delete(GoalRelation).where(
+                (GoalRelation.goal_a_id == goal_id) | (GoalRelation.goal_b_id == goal_id)
+            )
+        )
         # Delete reps first (FK constraint)
         await session.execute(delete(Rep).where(Rep.goal_id == goal_id))
         # Delete rep types
